@@ -4,7 +4,7 @@ Code for training and testing Neural Event Model (NEM). We represent events as c
 
 ## Requirements
 
-This code depends on Keras 2.0.3, and is written in Python 3.5.
+This code depends on Keras 2.0.4, and is written in Python 3.6.
 
 ## Data Format
 
@@ -17,7 +17,7 @@ Train and test data is expected in JSON format with the following fields
       "V": "string",
       "A0": "string",
       ...
-    }
+    },
     "label": 0
   }
 ]
