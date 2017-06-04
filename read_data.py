@@ -1,11 +1,15 @@
 '''
 Process data and prepare inputs for Neural Event Model.
 '''
-import json
-import gzip
-from typing import List
 
+import gzip
+import json
 import numpy
+import os
+
+from gensim import models, utils
+from six import iteritems
+from typing import List
 
 
 class DataProcessor:
@@ -53,7 +57,7 @@ class DataProcessor:
         '''
         Takes integer indices and converts them into one hot representations.
         '''
-        output_size = (len(label_indices), numpy.max(label_indices)+1)
+        output_size = (len(label_indices), numpy.max(label_indices) + 1)
         output = numpy.zeros(output_size)
         output[numpy.arange(len(label_indices)), label_indices] = 1
         return output
@@ -115,7 +119,7 @@ class DataProcessor:
         '''
         string_length = len(indexed_string)
         # Padding on or truncating from the left
-        padded_string = ([self.word_index["NONE"]] * (max_string_length - string_length) +
+        padded_string = ([self.word_index["NONE"]] * (max_string_length - string_length) + 
                          indexed_string)[-max_string_length:]
         return padded_string
 
@@ -135,11 +139,42 @@ class DataProcessor:
 
     def get_embedding(self, embedding_file):
         '''
-        Reads in a gzipped pretrained embedding file, and returns a numpy array with vectors for words in word
-        index.
+        Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
+        '''
+        if embedding_file.find('.txt') < 0:
+          (pretrained_embedding, embedding_size) = self.get_embedding_from_bin(embedding_file)
+        else:
+          (pretrained_embedding, embedding_size) = self.get_embedding_from_txt(embedding_file)
+        embedding = numpy.random.rand(len(self.word_index), embedding_size)
+        for word in self.word_index:
+            if word in pretrained_embedding:
+                embedding[self.word_index[word]] = numpy.asarray(pretrained_embedding[word])
+        return embedding
+
+    def get_embedding_from_bin(self, embedding_file):
+        '''
+        Reads in a pretrained embedding bin file, and returns a numpy array with vectors for words in word index.
+        '''
+        model = models.keyedvectors.KeyedVectors.load_word2vec_format(embedding_file, binary=True)
+        pretrained_embedding = {}
+        for word, vocab in sorted(iteritems(model.vocab), key=lambda item:-item[1].count):
+            pretrained_embedding[word] = model.syn0[vocab.index]
+        embedding_size = model.syn0.shape[1]
+        return (pretrained_embedding, embedding_size)
+
+    def get_embedding_from_txt(self, embedding_file):
+        '''
+        Reads in a pretrained embedding txt file, and returns a numpy array with vectors for words in word index.
         '''
         pretrained_embedding = {}
-        for line in gzip.open(embedding_file):
+        f = os
+        mode = 'r'
+        encoding = 'utf-8'
+        if embedding_file.endswith('.gz'):
+          f = gzip
+          mode = 'rb'
+          encoding = None
+        for line in f.open(embedding_file, mode=mode, encoding=encoding):
             parts = line.strip().split()
             if len(parts) == 2:
                 continue
@@ -147,11 +182,7 @@ class DataProcessor:
             vector = [float(val) for val in parts[1:]]
             pretrained_embedding[word] = vector
         embedding_size = len(vector)
-        embedding = numpy.random.rand(len(self.word_index), embedding_size)
-        for word in self.word_index:
-            if word in pretrained_embedding:
-                embedding[self.word_index[word]] = numpy.asarray(pretrained_embedding[word])
-        return embedding
+        return (pretrained_embedding, embedding_size)
 
     def get_vocabulary_size(self):
         '''

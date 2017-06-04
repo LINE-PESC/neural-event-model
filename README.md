@@ -4,7 +4,7 @@ Code for training and testing Neural Event Model (NEM). We represent events as c
 
 ## Requirements
 
-This code depends on Keras 2.0.4, and is written in Python 3.6.
+This code depends on Keras 2.0.4 and Gensim 1.0.1, and is written in Python 3.6.
 
 ## Data Format
 
