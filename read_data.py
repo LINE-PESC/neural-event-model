@@ -2,6 +2,7 @@
 Process data and prepare inputs for Neural Event Model.
 '''
 
+import bz2
 import gzip
 import json
 import numpy
@@ -167,14 +168,8 @@ class DataProcessor:
         Reads in a pretrained embedding txt file, and returns a numpy array with vectors for words in word index.
         '''
         pretrained_embedding = {}
-        f = os
-        mode = 'r'
-        encoding = 'utf-8'
-        if embedding_file.endswith('.gz'):
-          f = gzip
-          mode = 'rb'
-          encoding = None
-        for line in f.open(embedding_file, mode=mode, encoding=encoding):
+        f = gzip if embedding_file.endswith('.gz') else (bz2 if embedding_file.endswith('.bz2') else os)
+        for line in f.open(embedding_file, mode='rt', encoding='utf-8'):
             parts = line.strip().split()
             if len(parts) == 2:
                 continue
