@@ -8,7 +8,7 @@ import json
 import numpy
 import os
 
-from gensim import models, utils
+from gensim import models
 from six import iteritems
 from typing import List
 
