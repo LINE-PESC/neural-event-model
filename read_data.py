@@ -168,8 +168,8 @@ class DataProcessor:
         Reads in a pretrained embedding txt file, and returns a numpy array with vectors for words in word index.
         '''
         pretrained_embedding = {}
-        f = gzip if embedding_file.endswith('.gz') else (bz2 if embedding_file.endswith('.bz2') else os)
-        for line in f.open(embedding_file, mode='rt', encoding='utf-8'):
+        open_file = gzip.open if embedding_file.endswith('.gz') else (bz2.open if embedding_file.endswith('.bz2') else open)
+        for line in open_file(embedding_file, mode='rt', encoding='utf-8'):
             parts = line.strip().split()
             if len(parts) == 2:
                 continue
