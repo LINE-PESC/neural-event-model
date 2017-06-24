@@ -6,7 +6,6 @@ import bz2
 import gzip
 import json
 import numpy
-import os
 
 from gensim import models
 from six import iteritems
