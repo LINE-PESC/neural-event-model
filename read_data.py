@@ -35,7 +35,12 @@ class DataProcessor:
             indexed_sentence = self._index_string(datum["sentence"], add_new_words=add_new_words)
             datum_event_structure = datum["event_structure"]
             if isinstance(datum_event_structure, list):
-              datum_event_structure = datum_event_structure[0]
+              if (len(datum_event_structure) > 0):
+                # consider only first event level 
+                datum_event_structure = datum_event_structure[0]
+              else:
+                # discard sentences without event and continue reading
+                continue
             indexed_event_args = {key: self._index_string(datum_event_structure[key],
                                                           add_new_words=add_new_words) for key in
                                   datum_event_structure.keys()}
