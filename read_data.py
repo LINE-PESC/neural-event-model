@@ -33,9 +33,12 @@ class DataProcessor:
         indexed_data = []
         for datum in data:
             indexed_sentence = self._index_string(datum["sentence"], add_new_words=add_new_words)
-            indexed_event_args = {key: self._index_string(datum["event_structure"][key],
+            datum_event_structure = datum["event_structure"]
+            if isinstance(datum_event_structure, list):
+              datum_event_structure = datum_event_structure[0]
+            indexed_event_args = {key: self._index_string(datum_event_structure[key],
                                                           add_new_words=add_new_words) for key in
-                                  datum["event_structure"].keys()}
+                                  datum_event_structure.keys()}
             if include_sentences_in_events:
                 indexed_event_args["sentence"] = indexed_sentence
             indexed_data.append((indexed_sentence, indexed_event_args, datum["label"]))
