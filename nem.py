@@ -99,7 +99,7 @@ class NEM:
             tune_embedding = True
         input_layer = Input(shape=(num_slots, num_words), name="EventInput", dtype='int32')
         embedding_weights = None if pretrained_embedding is None else [pretrained_embedding]
-        embedding = AnyShapeEmbedding(input_dim=self.data_processor.get_vocabulary_size(),
+        embedding = AnyShapeEmbedding(input_dim=self.data_processor.get_vocabulary_size(), input_length=num_words,
                                       output_dim=self.embedding_dim, weights=embedding_weights,
                                       mask_zero=True, trainable=tune_embedding, name="Embedding")
         embedded_inputs = embedding(input_layer)  # (batch_size, num_slots, num_words, embedding_dim)
@@ -127,9 +127,9 @@ class NEM:
             tune_embedding = True
         input_layer = Input(shape=(num_words,), name="SentenceInput", dtype='int32')
         embedding_weights = None if pretrained_embedding is None else [pretrained_embedding]
-        embedding = Embedding(input_dim=self.data_processor.get_vocabulary_size(), output_dim=self.embedding_dim,
-                              weights=embedding_weights, mask_zero=True, trainable=tune_embedding,
-                              name="Embedding")
+        embedding = Embedding(input_dim=self.data_processor.get_vocabulary_size(), input_length=num_words,
+                              output_dim=self.embedding_dim, weights=embedding_weights,
+                              mask_zero=True, trainable=tune_embedding, name="Embedding")
         embedded_inputs = embedding(input_layer)  # (batch_size, num_words, embedding_dim)
         embedded_inputs = Dropout(0.5)(embedded_inputs)
         encoder = LSTM(self.embedding_dim, name="SentenceEncoder")

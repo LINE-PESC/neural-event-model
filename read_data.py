@@ -150,16 +150,16 @@ class DataProcessor:
         Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
         '''
         if embedding_file.find('.txt') < 0:
-          (pretrained_embedding, embedding_size) = self.get_embedding_from_bin(embedding_file)
+          (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
         else:
-          (pretrained_embedding, embedding_size) = self.get_embedding_from_txt(embedding_file)
+          (pretrained_embedding, embedding_size) = self._get_embedding_from_txt(embedding_file)
         embedding = numpy.random.rand(len(self.word_index), embedding_size)
         for word in self.word_index:
             if word in pretrained_embedding:
                 embedding[self.word_index[word]] = numpy.asarray(pretrained_embedding[word])
         return embedding
 
-    def get_embedding_from_bin(self, embedding_file):
+    def _get_embedding_from_bin(self, embedding_file):
         '''
         Reads in a pretrained embedding bin file, and returns a numpy array with vectors for words in word index.
         '''
@@ -170,7 +170,7 @@ class DataProcessor:
         embedding_size = model.syn0.shape[1]
         return (pretrained_embedding, embedding_size)
 
-    def get_embedding_from_txt(self, embedding_file):
+    def _get_embedding_from_txt(self, embedding_file):
         '''
         Reads in a pretrained embedding txt file, and returns a numpy array with vectors for words in word index.
         '''

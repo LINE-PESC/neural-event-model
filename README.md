@@ -13,11 +13,19 @@ Train and test data is expected in JSON format with the following fields
 [
   {
     "sentence": "string",
-    "event_structure": {
-      "V": "string",
-      "A0": "string",
-      ...
-    },
+    "event_structure": [
+    	{
+	      	"V": "string",
+	      	"A0": "string",
+	      	...
+		},
+    	...,
+    	{
+	      	"V": "string",
+	      	"A1": "string",
+	      	...
+		},
+    ],
     "label": 0
   }
 ]
