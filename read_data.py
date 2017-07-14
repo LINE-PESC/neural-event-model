@@ -153,11 +153,11 @@ class DataProcessor:
           (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
         else:
           (pretrained_embedding, embedding_size) = self._get_embedding_from_txt(embedding_file)
-        max_min = [x for row in pretrained_embedding.values() for x in [[max(row), min(row)]]]
-        min_value = min(max_min)
-        max_value = max(max_min)
-        max_min = None
-        embedding = numpy.random.uniform(min_value, max_value, (len(self.word_index), embedding_size))
+        extremes = numpy.array([x for row in pretrained_embedding.values() for x in [min(row), max(row)]])
+        low_value = extremes.min()
+        high_value = extremes.max() + numpy.finfo(extremes.dtype).eps
+        extremes = None
+        embedding = numpy.random.uniform(low_value, high_value, (len(self.word_index), embedding_size))
         for word in self.word_index:
             if word in pretrained_embedding:
                 embedding[self.word_index[word]] = numpy.asarray(pretrained_embedding[word])
