@@ -153,14 +153,14 @@ class DataProcessor:
           (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
         else:
           (pretrained_embedding, embedding_size) = self._get_embedding_from_txt(embedding_file)
-        extremes = numpy.array([x for row in pretrained_embedding.values() for x in [min(row), max(row)]])
-        low_value = extremes.min()
-        high_value = extremes.max() + numpy.finfo(extremes.dtype).eps
-        extremes = None
-        embedding = numpy.random.uniform(low_value, high_value, (len(self.word_index), embedding_size))
+        embedding = numpy.array(list(pretrained_embedding.values()))
+        low_embedding = embedding.min(axis=0)
+        high_embedding = embedding.max(axis=0) + numpy.finfo(embedding.dtype).eps
+        shape_embedding = (len(self.word_index), embedding_size)
+        embedding = numpy.random.uniform(low_embedding, high_embedding, shape_embedding)
         for word in self.word_index:
             if word in pretrained_embedding:
-                embedding[self.word_index[word]] = numpy.asarray(pretrained_embedding[word])
+                embedding[self.word_index[word]] = pretrained_embedding[word]
         return embedding
 
     def _get_embedding_from_bin(self, embedding_file):
@@ -170,7 +170,7 @@ class DataProcessor:
         model = models.keyedvectors.KeyedVectors.load_word2vec_format(embedding_file, binary=True)
         pretrained_embedding = {}
         for word, vocab in sorted(iteritems(model.vocab), key=lambda item:-item[1].count):
-            pretrained_embedding[word] = model.syn0[vocab.index]
+            pretrained_embedding[word] = numpy.asarray(model.syn0[vocab.index])
         embedding_size = model.syn0.shape[1]
         return (pretrained_embedding, embedding_size)
 
@@ -186,7 +186,7 @@ class DataProcessor:
                 continue
             word = parts[0]
             vector = [float(val) for val in parts[1:]]
-            pretrained_embedding[word] = vector
+            pretrained_embedding[word] = numpy.asarray(vector)
         embedding_size = len(vector)
         return (pretrained_embedding, embedding_size)
 
