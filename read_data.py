@@ -159,10 +159,17 @@ class DataProcessor:
     high_embedding = embedding.max(axis=0) + numpy.finfo(embedding.dtype).eps
     shape_embedding = (len(self.word_index), embedding_size)
     embedding = numpy.random.uniform(low_embedding, high_embedding, shape_embedding)
+    count_words_pretrained_embedding = 0
     for word in self.word_index:
       if word in pretrained_embedding:
         embedding[self.word_index[word]] = pretrained_embedding[word]
+        count_words_pretrained_embedding += 1
     print("End of reading pretrained word embeddings.")
+    string_proportion = "Proportion of pre-embedding words: %.2f%%" % (count_words_pretrained_embedding * 100 / len(self.word_index))
+    string_sep = "=" * len(string_proportion)
+    print(string_sep)
+    print(string_proportion)
+    print(string_sep)
     return embedding
 
   def _get_embedding_from_bin(self, embedding_file):
