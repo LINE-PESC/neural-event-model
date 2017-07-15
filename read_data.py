@@ -149,7 +149,7 @@ class DataProcessor:
     '''
     Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
     '''
-    print("Reading pretrained word embeddings ...")
+    print("Begin of reading pretrained word embeddings ...")
     if embedding_file.find('.txt') < 0:
       (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
     else:
@@ -162,6 +162,7 @@ class DataProcessor:
     for word in self.word_index:
       if word in pretrained_embedding:
         embedding[self.word_index[word]] = pretrained_embedding[word]
+    print("End of reading pretrained word embeddings.")
     return embedding
 
   def _get_embedding_from_bin(self, embedding_file):
