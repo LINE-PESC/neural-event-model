@@ -47,8 +47,12 @@ class NEM:
         uses either the semantic role structure or just the sentences.
         '''
         pretrained_embedding = None
+        count_words_pretrained_embedding = 0
         if pretrained_embedding_file is not None:
-            pretrained_embedding = self.data_processor.get_embedding(pretrained_embedding_file)
+            pretrained_embedding, count_words_pretrained_embedding = self.data_processor.get_embedding(pretrained_embedding_file)
+        if count_words_pretrained_embedding < (self.data_processor.get_vocabulary_size() / 2):
+            # Override tune_embedding if count of pretrained embedding is less than half vocabulary size.
+            tune_embedding = True
         if self.use_event_structure:
             model = self._build_structured_model(inputs, pretrained_embedding, tune_embedding)
         else:

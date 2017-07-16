@@ -170,7 +170,7 @@ class DataProcessor:
     print(string_sep)
     print(string_proportion)
     print(string_sep)
-    return embedding
+    return embedding, count_words_pretrained_embedding
 
   def _get_embedding_from_bin(self, embedding_file):
     '''
