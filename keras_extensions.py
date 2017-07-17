@@ -5,7 +5,7 @@ assumptions here.
 #from overrides import overrides
 
 from keras import backend as K
-from keras.layers import Embedding, TimeDistributed, Flatten
+from keras.layers import Embedding, TimeDistributed, Flatten#, Reshape, RepeatVector
 
 
 class AnyShapeEmbedding(Embedding):
@@ -58,6 +58,58 @@ class MaskedFlatten(Flatten):
                 return K.any(mask, axis=-1)
             else:
                 return K.batch_flatten(mask)
+
+
+# class MaskedRepeatVector(RepeatVector):
+#     '''
+#     RepeatVector does not allow masked inputs. This class does.
+#     '''
+#     def __init__(self, n, **kwargs):
+#         super(MaskedRepeatVector, self).__init__(n, **kwargs)
+#         self.supports_masking = True
+# 
+#     def call(self, inputs, mask=None):
+#         # Assuming the output will be passed through a dense layer after this.
+#         if mask is not None:
+#             inputs = switch(K.expand_dims(mask), inputs, K.zeros_like(inputs))
+#         return super(MaskedRepeatVector, self).call(inputs)
+# 
+#     def compute_mask(self, inputs, mask=None):
+#         if mask is None:
+#             return None
+#         else:
+#             if K.ndim(mask) == 2:
+#                 # This needs special treatment. It means that the input ndim is 3, and output ndim is 2, thus
+#                 # requiring the mask's ndim to be 1.
+#                 return K.any(mask, axis=-1)
+#             else:
+#                 return K.batch_flatten(mask)
+# 
+# 
+# class MaskedReshape(Reshape):
+#     '''
+#     Reshape does not allow masked inputs. This class does.
+#     '''
+#     def __init__(self, target_shape, **kwargs):
+#         super(MaskedReshape, self).__init__(target_shape, **kwargs)
+#         self.supports_masking = True
+# 
+#     def call(self, inputs, mask=None):
+#         # Assuming the output will be passed through a dense layer after this.
+#         if mask is not None:
+#             inputs = switch(K.expand_dims(mask), inputs, K.zeros_like(inputs))
+#         return super(MaskedReshape, self).call(inputs)
+# 
+#     def compute_mask(self, inputs, mask=None):
+#         if mask is None:
+#             return None
+#         else:
+#             if K.ndim(mask) == 2:
+#                 # This needs special treatment. It means that the input ndim is 3, and output ndim is 2, thus
+#                 # requiring the mask's ndim to be 1.
+#                 return K.any(mask, axis=-1)
+#             else:
+#                 return K.batch_flatten(mask)
 
 
 def switch(cond, then_tensor, else_tensor):

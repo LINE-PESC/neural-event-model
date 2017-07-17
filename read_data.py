@@ -56,8 +56,8 @@ class DataProcessor:
     for token in tokens:
       if token not in self.word_index and add_new_words:
         self.word_index[token] = len(self.word_index)
-    token_indices = [self.word_index[token] if token in self.word_index else self.word_index["UNK"] for token
-             in tokens]
+    token_indices = [self.word_index[token] if token in self.word_index else self.word_index["UNK"] \
+                     for token in tokens]
     return token_indices
 
   @staticmethod
