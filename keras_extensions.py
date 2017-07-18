@@ -72,14 +72,17 @@ class MaskedRepeat(RepeatVector):
  
     # @overrides
     def compute_output_shape(self, input_shape):
-        if (len(input_shape) <= self.repeat_axis):
-            raise ValueError('`repeat_axis` value can not bigger than the number of dimensions from input_shape.')
-        return (input_shape[:self.repeat_axis]) + ((input_shape[self.repeat_axis] * self.n),) + (input_shape[self.repeat_axis + 1:])
-      
+        repeat_axis_abs = self.repeat_axis if self.repeat_axis >= 0 else self.repeat_axis + len(input_shape)
+        if (repeat_axis_abs < 0) or (len(input_shape) <= repeat_axis_abs):
+            raise ValueError('`repeat_axis` value is out of dimensions from input_shape.')
+        return (input_shape[:repeat_axis_abs]) + ((input_shape[repeat_axis_abs] * self.n),) + (input_shape[repeat_axis_abs + 1:])
+    
     # @overrides
     def call(self, inputs):
-        return K.repeat_elements(inputs, self.n, self.repeat_axis)
-
+        input_shape = inputs._keras_shape
+        repeat_axis_abs = self.repeat_axis if self.repeat_axis >= 0 else self.repeat_axis + len(input_shape)
+        return K.repeat_elements(inputs, self.n, repeat_axis_abs)
+    
     def get_config(self):
         config = {'repeat_axis': self.repeat_axis}
         base_config = super(MaskedRepeat, self).get_config()
