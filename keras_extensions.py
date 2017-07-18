@@ -88,7 +88,7 @@ class MaskedRepeat(RepeatVector):
         base_config = super(MaskedRepeat, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
     
-# TODO: precisa checar se com o suporte a masl_zero, a camada está realmente funcionando como deveria
+# TODO: precisa checar se com o suporte a mask_zero, a camada está realmente funcionando como deveria
 #     def compute_mask(self, inputs, mask=None):
 #         if mask is None:
 #             return None
@@ -109,14 +109,14 @@ class MaskedReshape(Reshape):
         super(MaskedReshape, self).__init__(target_shape, **kwargs)
         self.supports_masking = True
  
-# TODO: precisa checar se com o suporte a masl_zero, a camada está realmente funcionando como deveria
+# TODO: precisa checar se com o suporte a mask_zero, a camada está realmente funcionando como deveria
 #     def call(self, inputs, mask=None):
 #         # Assuming the output will be passed through a dense layer after this.
 #         if mask is not None:
 #             inputs = switch(K.expand_dims(mask), inputs, K.zeros_like(inputs))
 #         return super(MaskedReshape, self).call(inputs)
 #  
-# TODO: precisa checar se com o suporte a masl_zero, a camada está realmente funcionando como deveria
+# TODO: precisa checar se com o suporte a mask_zero, a camada está realmente funcionando como deveria
 #     def compute_mask(self, inputs, mask=None):
 #         if mask is None:
 #             return None
