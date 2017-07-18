@@ -2,7 +2,7 @@
 Keras is great, but it makes certain assumptions that do not quite work for NLP problems. We override some of those
 assumptions here.
 '''
-#from overrides import overrides
+# from overrides import overrides
 
 from keras import backend as K
 from keras.layers import Embedding, TimeDistributed, Flatten, Reshape, RepeatVector
@@ -13,7 +13,7 @@ class AnyShapeEmbedding(Embedding):
     We just want Embedding to work with inputs of any number of dimensions.
     This can be accomplished by simply changing the output shape computation.
     '''
-    #@overrides
+    # @overrides
     def compute_output_shape(self, input_shape):
         return input_shape + (self.output_dim,)
 
@@ -25,7 +25,7 @@ class TimeDistributedRNN(TimeDistributed):
     when we are time distributing it, it is possible that some sequences are entirely padding, for example, when
     one of the slots being encoded is not present in the input at all. We override masking here.
     '''
-    #@overrides
+    # @overrides
     def compute_mask(self, x, input_mask=None):
         # pylint: disable=unused-argument
         if input_mask is None:
@@ -64,21 +64,26 @@ class MaskedRepeat(RepeatVector):
     '''
     RepeatVector does not allow masked inputs and does not work with inputs of any number of dimensions. This class does.
     '''
-    def __init__(self, n, axis=1, **kwargs):
+    def __init__(self, n, repeat_axis=1, **kwargs):
         super(MaskedRepeat, self).__init__(n, **kwargs)
-        self.axis = axis
+        self.repeat_axis = repeat_axis
         self.input_spec = None
         self.supports_masking = True
  
-    #@overrides
+    # @overrides
     def compute_output_shape(self, input_shape):
-        if (len(input_shape) <= self.axis):
-            raise ValueError('`axis` value can not bigger than the number of dimensions from input_shape.')
-        return (input_shape[:self.axis]) + ((input_shape[self.axis] * self.n),) + (input_shape[self.axis+1:])
+        if (len(input_shape) <= self.repeat_axis):
+            raise ValueError('`repeat_axis` value can not bigger than the number of dimensions from input_shape.')
+        return (input_shape[:self.repeat_axis]) + ((input_shape[self.repeat_axis] * self.n),) + (input_shape[self.repeat_axis + 1:])
       
-    #@overrides
+    # @overrides
     def call(self, inputs):
-        return K.repeat_elements(inputs, self.n, self.axis)
+        return K.repeat_elements(inputs, self.n, self.repeat_axis)
+
+    def get_config(self):
+        config = {'repeat_axis': self.repeat_axis}
+        base_config = super(MaskedRepeat, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
     
 # TODO: precisa checar se com o suporte a masl_zero, a camada está realmente funcionando como deveria
 #     def compute_mask(self, inputs, mask=None):
