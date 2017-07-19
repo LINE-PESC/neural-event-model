@@ -5,7 +5,7 @@ assumptions here.
 # from overrides import overrides
 
 from keras import backend as K
-from keras.layers import Embedding, TimeDistributed, Flatten, Reshape, RepeatVector
+from keras.layers import Embedding, TimeDistributed, Flatten
 
 
 class AnyShapeEmbedding(Embedding):
@@ -58,75 +58,6 @@ class MaskedFlatten(Flatten):
                 return K.any(mask, axis=-1)
             else:
                 return K.batch_flatten(mask)
-
-
-class MaskedRepeat(RepeatVector):
-    '''
-    RepeatVector does not allow masked inputs and does not work with inputs of any number of dimensions. This class does.
-    '''
-    def __init__(self, n, repeat_axis=1, **kwargs):
-        super(MaskedRepeat, self).__init__(n, **kwargs)
-        self.repeat_axis = repeat_axis
-        self.input_spec = None
-        self.supports_masking = True
- 
-    # @overrides
-    def compute_output_shape(self, input_shape):
-        repeat_axis_abs = self.repeat_axis if self.repeat_axis >= 0 else self.repeat_axis + len(input_shape)
-        if (repeat_axis_abs < 0) or (len(input_shape) <= repeat_axis_abs):
-            raise ValueError('`repeat_axis` value is out of dimensions from input_shape.')
-        return (input_shape[:repeat_axis_abs]) + ((input_shape[repeat_axis_abs] * self.n),) + (input_shape[repeat_axis_abs + 1:])
-    
-    # @overrides
-    def call(self, inputs):
-        input_shape = inputs._keras_shape
-        repeat_axis_abs = self.repeat_axis if self.repeat_axis >= 0 else self.repeat_axis + len(input_shape)
-        return K.repeat_elements(inputs, self.n, repeat_axis_abs)
-    
-    def get_config(self):
-        config = {'repeat_axis': self.repeat_axis}
-        base_config = super(MaskedRepeat, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-    
-# TODO: precisa checar se com o suporte a mask_zero, a camada está realmente funcionando como deveria
-#     def compute_mask(self, inputs, mask=None):
-#         if mask is None:
-#             return None
-#         else:
-#             if K.ndim(mask) == 2:
-#                 # This needs special treatment. It means that the input ndim is 3, and output ndim is 2, thus
-#                 # requiring the mask's ndim to be 1.
-#                 return K.any(mask, axis=-1)
-#             else:
-#                 return K.batch_flatten(mask)
- 
- 
-class MaskedReshape(Reshape):
-    '''
-    Reshape does not allow masked inputs. This class does.
-    '''
-    def __init__(self, target_shape, **kwargs):
-        super(MaskedReshape, self).__init__(target_shape, **kwargs)
-        self.supports_masking = True
- 
-# TODO: precisa checar se com o suporte a mask_zero, a camada está realmente funcionando como deveria
-#     def call(self, inputs, mask=None):
-#         # Assuming the output will be passed through a dense layer after this.
-#         if mask is not None:
-#             inputs = switch(K.expand_dims(mask), inputs, K.zeros_like(inputs))
-#         return super(MaskedReshape, self).call(inputs)
-#  
-# TODO: precisa checar se com o suporte a mask_zero, a camada está realmente funcionando como deveria
-#     def compute_mask(self, inputs, mask=None):
-#         if mask is None:
-#             return None
-#         else:
-#             if K.ndim(mask) == 2:
-#                 # This needs special treatment. It means that the input ndim is 3, and output ndim is 2, thus
-#                 # requiring the mask's ndim to be 1.
-#                 return K.any(mask, axis=-1)
-#             else:
-#                 return K.batch_flatten(mask)
 
 
 def switch(cond, then_tensor, else_tensor):
