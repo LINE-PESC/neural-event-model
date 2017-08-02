@@ -5,13 +5,15 @@ Process data and prepare inputs for Neural Event Model.
 import bz2
 import gzip
 import json
-import numpy
+import logging
+import numpy as np
 
 from gensim import models
 from six import iteritems
 from sklearn.preprocessing import normalize
 from typing import List
 
+logger = logging
 
 class DataProcessor:
   '''
@@ -30,30 +32,53 @@ class DataProcessor:
     vocabulary (treat them as unk). pad_info is applicable when we want to pad data to a pre-specified
     length (for example when testing, we want to make the sequences the same length as those from train).
     '''
-    data = json.load(open(filename))
+    rows_buffer = []
     indexed_data = []
-    for datum in data:
-      indexed_sentence = self._index_string(datum["sentence"], add_new_words=add_new_words)
-      datum_event_structure = datum["event_structure"]
-      if isinstance(datum_event_structure, list):
-        if (len(datum_event_structure) > 0):
-          # consider only first event level 
-          datum_event_structure = datum_event_structure[0]
-        else:
-          # discard sentences without event and continue reading
-          continue
-      indexed_event_args = {key: self._index_string(datum_event_structure[key],
-                              add_new_words=add_new_words) for key in
-                  datum_event_structure.keys()}
-      if include_sentences_in_events:
-        indexed_event_args["sentence"] = indexed_sentence
-      try:
-        indexed_data.append((indexed_sentence, indexed_event_args, datum["label"]))
-      except KeyError:
-        indexed_data.append((indexed_sentence, indexed_event_args))
+    open_file = gzip.open if filename.endswith('.gz') else (bz2.open if filename.endswith('.bz2') else open)
+    for row in open_file(filename, mode='rt', encoding='utf-8', errors='replace'):
+      rows_buffer.append(row)
+      if (len(rows_buffer) >= 1000):
+        indexed_data.extend(self._index_data_batch(rows_buffer, add_new_words, include_sentences_in_events))
+        rows_buffer.clear()
+    indexed_data.extend(self._index_data_batch(rows_buffer, add_new_words, include_sentences_in_events))
     sentence_inputs, event_inputs, labels = self.pad_data(indexed_data, pad_info)
     return sentence_inputs, event_inputs, self._make_one_hot(labels)
-
+  
+  def _index_data_batch(self, rows_batch, add_new_words=True, include_sentences_in_events=False, min_event_structure = 1, max_event_structure = 1):
+    indexed_data = []
+    for row in rows_batch:
+      row = row.strip()
+      row = row if row.startswith(('{')) else '{' + '{'.join(row.split('{')[1:])
+      row = row if row.endswith(('}')) else '}'.join(row.split('}')[:-1]) + '}'
+      try:
+        datum = json.loads(row)
+        indexed_sentence = self._index_string(datum["sentence"], add_new_words=add_new_words)
+        datum_event_structure = datum["event_structure"]
+        if isinstance(datum_event_structure, list):
+          len_event_structure = len(datum_event_structure)
+          if (len_event_structure > 0) \
+          and ((min_event_structure is None) or (len_event_structure >= max(min_event_structure, 0))) \
+          and ((max_event_structure is None) or (len_event_structure <= max(max_event_structure, 1))):              
+            # consider only first event level 
+            datum_event_structure = datum_event_structure[0]
+          else:
+            # discard sentences without event or without number of event levels expected and continue reading
+            continue
+        indexed_event_args = {key: self._index_string(datum_event_structure[key],
+                                add_new_words=add_new_words) for key in
+                    datum_event_structure.keys()}
+        if include_sentences_in_events:
+          indexed_event_args["sentence"] = indexed_sentence
+        try:
+          indexed_data.append((indexed_sentence, indexed_event_args, datum["label"]))
+        except KeyError:
+          indexed_data.append((indexed_sentence, indexed_event_args))
+      except json.decoder.JSONDecodeError:
+        if (len(row.strip()) > 0):
+          warn_msg = f"ERROR ON INDEX_DATA: The row isn't in json format: '{row}'"
+          logger.warn(warn_msg)
+    return indexed_data
+  
   def _index_string(self, string: str, add_new_words=True):
     # Assuming the string is already tokenized (with tokens separated by spaces).
     tokens = string.split()
@@ -71,9 +96,9 @@ class DataProcessor:
     '''
     if label_indices is None:
       return None
-    output_size = (len(label_indices), numpy.max(label_indices) + 1)
-    output = numpy.zeros(output_size)
-    output[numpy.arange(len(label_indices)), label_indices] = 1
+    output_size = (len(label_indices), np.max(label_indices) + 1)
+    output = np.zeros(output_size)
+    output[np.arange(len(label_indices)), label_indices] = 1
     return output
 
   def pad_data(self, indexed_data, pad_info):
@@ -88,7 +113,7 @@ class DataProcessor:
     labels = None
     if len(indexed_data[0]) > 2:
       indexed_sentences, indexed_event_structures, labels = zip(*indexed_data)
-      labels = numpy.asarray(labels)
+      labels = np.asarray(labels)
     else:
       indexed_sentences, indexed_event_structures = zip(*indexed_data)
     event_structures_have_sentences = False
@@ -130,7 +155,7 @@ class DataProcessor:
     for event_structure in ordered_event_structures:
       event_inputs.append([self._pad_indexed_string(indexed_arg, self.max_arg_length) \
                            for indexed_arg in event_structure])
-    return numpy.asarray(sentence_inputs), numpy.asarray(event_inputs), labels
+    return np.asarray(sentence_inputs), np.asarray(event_inputs), labels
 
   def _pad_indexed_string(self, indexed_string: List[int], max_string_length: int):
     '''
@@ -165,11 +190,11 @@ class DataProcessor:
       (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
     else:
       (pretrained_embedding, embedding_size) = self._get_embedding_from_txt(embedding_file)
-    embedding = numpy.array(list(pretrained_embedding.values()))
+    embedding = np.array(list(pretrained_embedding.values()))
     low_embedding = embedding.min(axis=0)
-    high_embedding = embedding.max(axis=0) + numpy.finfo(embedding.dtype).eps
+    high_embedding = embedding.max(axis=0) + np.finfo(embedding.dtype).eps
     shape_embedding = (len(self.word_index), embedding_size)
-    embedding = numpy.random.uniform(low_embedding, high_embedding, shape_embedding)
+    embedding = np.random.uniform(low_embedding, high_embedding, shape_embedding)
     count_words_pretrained_embedding = 0
     for word in self.word_index:
       if word in pretrained_embedding:
@@ -192,7 +217,7 @@ class DataProcessor:
     model = models.keyedvectors.KeyedVectors.load_word2vec_format(embedding_file, binary=True)
     pretrained_embedding = {}
     for word, vocab in sorted(iteritems(model.vocab), key=lambda item:-item[1].count):
-      pretrained_embedding[word] = numpy.asarray(model.syn0[vocab.index])
+      pretrained_embedding[word] = np.asarray(model.syn0[vocab.index])
     embedding_size = model.syn0.shape[1]
     return (pretrained_embedding, embedding_size)
 
@@ -208,7 +233,7 @@ class DataProcessor:
         continue
       word = parts[0]
       vector = [float(val) for val in parts[1:]]
-      pretrained_embedding[word] = numpy.asarray(vector)
+      pretrained_embedding[word] = np.asarray(vector)
     embedding_size = len(vector)
     return (pretrained_embedding, embedding_size)
 
