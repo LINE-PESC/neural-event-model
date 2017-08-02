@@ -8,7 +8,7 @@ This code depends on Keras 2.0.4 and Gensim 1.0.1, and is written in Python 3.6.
 
 ## Data Format
 
-Train and test data is expected in JSON format with the following fields
+Train and test data is expected in JSON format with the following fields (the `"label"` field is optional)
 ```
 [
   {
@@ -30,7 +30,7 @@ Train and test data is expected in JSON format with the following fields
   }
 ]
 ```
-The dataset is a list of dicts, with each dict containing `sentence`, `event_structure` and a `label`. `event_structire` is a dict containing the verb and semantic role fillers. We use Propbank style SRL tags. Label is either 0 or 1.
+The dataset is a list of dicts, with each dict containing `sentence`, `event_structure` and optionally a `label`. `event_structire` is a dict containing the verb and semantic role fillers. We use Propbank style SRL tags. Label is either 0 or 1.
 
 ## Training
 

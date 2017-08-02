@@ -47,7 +47,10 @@ class DataProcessor:
                   datum_event_structure.keys()}
       if include_sentences_in_events:
         indexed_event_args["sentence"] = indexed_sentence
-      indexed_data.append((indexed_sentence, indexed_event_args, datum["label"]))
+      try:
+        indexed_data.append((indexed_sentence, indexed_event_args, datum["label"]))
+      except KeyError:
+        indexed_data.append((indexed_sentence, indexed_event_args))
     sentence_inputs, event_inputs, labels = self.pad_data(indexed_data, pad_info)
     return sentence_inputs, event_inputs, self._make_one_hot(labels)
 
@@ -66,6 +69,8 @@ class DataProcessor:
     '''
     Takes integer indices and converts them into one hot representations.
     '''
+    if label_indices is None:
+      return None
     output_size = (len(label_indices), numpy.max(label_indices) + 1)
     output = numpy.zeros(output_size)
     output[numpy.arange(len(label_indices)), label_indices] = 1
@@ -80,7 +85,12 @@ class DataProcessor:
     # Setting max sentence length
     if not pad_info:
       pad_info = {}
-    indexed_sentences, indexed_event_structures, labels = zip(*indexed_data)
+    labels = None
+    if len(indexed_data[0]) > 2:
+      indexed_sentences, indexed_event_structures, labels = zip(*indexed_data)
+      labels = numpy.asarray(labels)
+    else:
+      indexed_sentences, indexed_event_structures = zip(*indexed_data)
     event_structures_have_sentences = False
     if "sentence" in indexed_event_structures[0]:
       # This means index_data included sentences in event structures. We need to pad accordingly.
@@ -120,7 +130,7 @@ class DataProcessor:
     for event_structure in ordered_event_structures:
       event_inputs.append([self._pad_indexed_string(indexed_arg, self.max_arg_length) \
                            for indexed_arg in event_structure])
-    return numpy.asarray(sentence_inputs), numpy.asarray(event_inputs), numpy.asarray(labels)
+    return numpy.asarray(sentence_inputs), numpy.asarray(event_inputs), labels
 
   def _pad_indexed_string(self, indexed_string: List[int], max_string_length: int):
     '''
