@@ -13,13 +13,13 @@ from six import iteritems
 from sklearn.preprocessing import normalize
 from typing import List
 
-logger = logging
 
 class DataProcessor:
   '''
   Read in data in json format, index and vectorize words, preparing data for train or test.
   '''
-  def __init__(self):
+  def __init__(self, logger = None):
+    self.logger = logging if logger is None else logger
     # All types of arguments seen by the processor. A0, A1, etc.
     self.arg_types = []
     self.max_sentence_length = None
@@ -35,12 +35,15 @@ class DataProcessor:
     rows_buffer = []
     indexed_data = []
     open_file = gzip.open if filename.endswith('.gz') else (bz2.open if filename.endswith('.bz2') else open)
+    count_rows = 0
     for row in open_file(filename, mode='rt', encoding='utf-8', errors='replace'):
       rows_buffer.append(row)
+      count_rows += 1
       if (len(rows_buffer) >= 1000):
         indexed_data.extend(self._index_data_batch(rows_buffer, add_new_words, include_sentences_in_events))
         rows_buffer.clear()
     indexed_data.extend(self._index_data_batch(rows_buffer, add_new_words, include_sentences_in_events))
+    self.logger.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows}")
     sentence_inputs, event_inputs, labels = self.pad_data(indexed_data, pad_info)
     return sentence_inputs, event_inputs, self._make_one_hot(labels)
   
@@ -76,7 +79,7 @@ class DataProcessor:
       except json.decoder.JSONDecodeError:
         if (len(row.strip()) > 0):
           warn_msg = f"ERROR ON INDEX_DATA: The row isn't in json format: '{row}'"
-          logger.warn(warn_msg)
+          self.logger.warn(warn_msg)
     return indexed_data
   
   def _index_string(self, string: str, add_new_words=True):
