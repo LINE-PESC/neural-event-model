@@ -13,13 +13,14 @@ from six import iteritems
 from sklearn.preprocessing import normalize
 from typing import List
 
+LOGGER = logging.Logger('read_data')
 
 class DataProcessor:
   '''
   Read in data in json format, index and vectorize words, preparing data for train or test.
   '''
-  def __init__(self, logger = None):
-    self.logger = logging if logger is None else logger
+  def __init__(self):
+    self.logger = LOGGER
     # All types of arguments seen by the processor. A0, A1, etc.
     self.arg_types = []
     self.max_sentence_length = None
@@ -47,7 +48,7 @@ class DataProcessor:
     sentence_inputs, event_inputs, labels = self.pad_data(indexed_data, pad_info)
     return sentence_inputs, event_inputs, self._make_one_hot(labels)
   
-  def _index_data_batch(self, rows_batch, add_new_words=True, include_sentences_in_events=False, min_event_structure = 1, max_event_structure = 1):
+  def _index_data_batch(self, rows_batch, add_new_words=True, include_sentences_in_events=False, min_event_structure=1, max_event_structure=1):
     indexed_data = []
     for row in rows_batch:
       row = row.strip()
@@ -188,7 +189,7 @@ class DataProcessor:
     '''
     Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
     '''
-    print("Begin of reading pretrained word embeddings ...")
+    self.logger.info("Begin of reading pretrained word embeddings ...")
     if embedding_file.find('.txt') < 0:
       (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
     else:
@@ -205,12 +206,12 @@ class DataProcessor:
         count_words_pretrained_embedding += 1
     # normalize embedding features with l2-norm
     embedding = normalize(embedding, axis=0)
-    print("End of reading pretrained word embeddings.")
+    self.logger.info("End of reading pretrained word embeddings.")
     string_proportion = "Proportion of pre-embedding words: %.2f%%" % (count_words_pretrained_embedding * 100 / len(self.word_index))
     string_sep = "=" * len(string_proportion)
-    print(string_sep)
-    print(string_proportion)
-    print(string_sep)
+    self.logger.info(string_sep)
+    self.logger.info(string_proportion)
+    self.logger.info(string_sep)
     return embedding, count_words_pretrained_embedding
 
   def _get_embedding_from_bin(self, embedding_file):

@@ -24,7 +24,7 @@ Train and test data is expected in JSON format with the following fields (the `"
 	      	"V": "string",
 	      	"A1": "string",
 	      	...
-		},
+		}
     ],
     "label": 0
   }
