@@ -7,20 +7,22 @@ import gzip
 import json
 import logging
 import numpy as np
+import sys
 
 from gensim import models
 from six import iteritems
 from sklearn.preprocessing import normalize
 from typing import List
 
-LOGGER = logging.Logger('read_data')
+logging.basicConfig(level=logging.DEBUG, stream=sys.stdout,
+                   format='[%(asctime)s]%(levelname)s(%(name)s): %(message)s')
+LOGGER = logging.getLogger(__name__)
 
 class DataProcessor:
   '''
   Read in data in json format, index and vectorize words, preparing data for train or test.
   '''
   def __init__(self):
-    self.logger = LOGGER
     # All types of arguments seen by the processor. A0, A1, etc.
     self.arg_types = []
     self.max_sentence_length = None
@@ -44,7 +46,7 @@ class DataProcessor:
         indexed_data.extend(self._index_data_batch(rows_buffer, add_new_words, include_sentences_in_events))
         rows_buffer.clear()
     indexed_data.extend(self._index_data_batch(rows_buffer, add_new_words, include_sentences_in_events))
-    self.logger.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows}")
+    LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows}")
     sentence_inputs, event_inputs, labels = self.pad_data(indexed_data, pad_info)
     return sentence_inputs, event_inputs, self._make_one_hot(labels)
   
@@ -80,7 +82,7 @@ class DataProcessor:
       except json.decoder.JSONDecodeError:
         if (len(row.strip()) > 0):
           warn_msg = f"ERROR ON INDEX_DATA: The row isn't in json format: '{row}'"
-          self.logger.warn(warn_msg)
+          LOGGER.warn(warn_msg)
     return indexed_data
   
   def _index_string(self, string: str, add_new_words=True):
@@ -189,7 +191,7 @@ class DataProcessor:
     '''
     Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
     '''
-    self.logger.info("Begin of reading pretrained word embeddings ...")
+    LOGGER.info("Begin of reading pretrained word embeddings ...")
     if embedding_file.find('.txt') < 0:
       (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
     else:
@@ -206,12 +208,12 @@ class DataProcessor:
         count_words_pretrained_embedding += 1
     # normalize embedding features with l2-norm
     embedding = normalize(embedding, axis=0)
-    self.logger.info("End of reading pretrained word embeddings.")
+    LOGGER.info("End of reading pretrained word embeddings.")
     string_proportion = "Proportion of pre-embedding words: %.2f%%" % (count_words_pretrained_embedding * 100 / len(self.word_index))
     string_sep = "=" * len(string_proportion)
-    self.logger.info(string_sep)
-    self.logger.info(string_proportion)
-    self.logger.info(string_sep)
+    LOGGER.info(string_sep)
+    LOGGER.info(string_proportion)
+    LOGGER.info(string_sep)
     return embedding, count_words_pretrained_embedding
 
   def _get_embedding_from_bin(self, embedding_file):
