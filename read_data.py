@@ -10,6 +10,7 @@ import numpy as np
 import sys
 
 from gensim import models
+from scipy.sparse import csr_matrix
 from six import iteritems
 from sklearn.preprocessing import normalize
 from typing import List
@@ -132,7 +133,7 @@ class DataProcessor:
       self.max_sentence_length = max([len(indexed_sentence) for indexed_sentence in indexed_sentences])
     # Padding and/or truncating sentences
     for indexed_sentence in indexed_sentences:
-      sentence_inputs.append(self._pad_indexed_string(indexed_sentence, self.max_sentence_length))
+      sentence_inputs.append(csr_matrix(self._pad_indexed_string(indexed_sentence, self.max_sentence_length)))
 
     # Removing unnecessary arguments.
     if "wanted_args" in pad_info:
@@ -159,8 +160,8 @@ class DataProcessor:
                                  for structure in ordered_event_structures])
     event_inputs = []
     for event_structure in ordered_event_structures:
-      event_inputs.append([self._pad_indexed_string(indexed_arg, self.max_arg_length) \
-                           for indexed_arg in event_structure])
+      event_inputs.append(csr_matrix([self._pad_indexed_string(indexed_arg, self.max_arg_length) \
+                           for indexed_arg in event_structure]))
     indexed_sentences = None
     indexed_event_structures = None
     ordered_event_structures = None
