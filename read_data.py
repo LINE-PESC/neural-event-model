@@ -29,7 +29,7 @@ class DataProcessor:
     self.max_arg_length = None
     self.word_index = {"NONE": 0, "UNK": 1}  # None is padding, UNK is OOV.
 
-  def index_data(self, filename, add_new_words=True, pad_info=None, include_sentences_in_events=False):
+  def index_data(self, filename, add_new_words=True, pad_info=None, include_sentences_in_events=False, use_event_structure=True):
     '''
     Read data from file, and return indexed inputs. If this is for test, do not add new words to the
     vocabulary (treat them as unk). pad_info is applicable when we want to pad data to a pre-specified
@@ -47,8 +47,8 @@ class DataProcessor:
         rows_buffer.clear()
     indexed_data.extend(self._index_data_batch(rows_buffer, add_new_words, include_sentences_in_events))
     LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows}")
-    sentence_inputs, event_inputs, labels = self.pad_data(indexed_data, pad_info)
-    return sentence_inputs, event_inputs, self._make_one_hot(labels)
+    inputs, labels = self.pad_data(indexed_data, pad_info, use_event_structure)
+    return inputs, self._make_one_hot(labels)
   
   def _index_data_batch(self, rows_batch, add_new_words=True, include_sentences_in_events=False, min_event_structure=1, max_event_structure=1):
     indexed_data = []
@@ -107,7 +107,7 @@ class DataProcessor:
     output[np.arange(len(label_indices)), label_indices] = 1
     return output
 
-  def pad_data(self, indexed_data, pad_info):
+  def pad_data(self, indexed_data, pad_info, use_event_structure=True):
     '''
     Takes a list of tuples containing indexed sentences, indexed event structures and labels, and returns numpy
     arrays.
@@ -164,9 +164,13 @@ class DataProcessor:
     indexed_sentences = None
     indexed_event_structures = None
     ordered_event_structures = None
-    event_inputs = np.asarray(event_inputs)
-    sentence_inputs = np.asarray(sentence_inputs)
-    return sentence_inputs, event_inputs, labels
+    if use_event_structure:
+      sentence_inputs = None
+      inputs = np.asarray(event_inputs)
+    else:
+      event_inputs = None
+      inputs = np.asarray(sentence_inputs)
+    return inputs, labels
 
   def _pad_indexed_string(self, indexed_string: List[int], max_string_length: int):
     '''
