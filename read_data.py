@@ -161,7 +161,12 @@ class DataProcessor:
     for event_structure in ordered_event_structures:
       event_inputs.append([self._pad_indexed_string(indexed_arg, self.max_arg_length) \
                            for indexed_arg in event_structure])
-    return np.asarray(sentence_inputs), np.asarray(event_inputs), labels
+    indexed_sentences = None
+    indexed_event_structures = None
+    ordered_event_structures = None
+    event_inputs = np.asarray(event_inputs)
+    sentence_inputs = np.asarray(sentence_inputs)
+    return sentence_inputs, event_inputs, labels
 
   def _pad_indexed_string(self, indexed_string: List[int], max_string_length: int):
     '''
