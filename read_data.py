@@ -79,9 +79,16 @@ class DataProcessor:
                 if include_sentences_in_events:
                     indexed_event_args["sentence"] = indexed_sentence
                 try:
-                    indexed_data.append((indexed_sentence, indexed_event_args, datum["label"]))
-                except KeyError:
+                    label = datum["meta_info"][0]
+                except:
+                    try:
+                        label = datum["meta_info"]["label"]
+                    except:
+                        label = None
+                if label is None:
                     indexed_data.append((indexed_sentence, indexed_event_args))
+                else:
+                    indexed_data.append((indexed_sentence, indexed_event_args, label))
             except json.decoder.JSONDecodeError:
                 if (len(row.strip()) > 0):
                     warn_msg = f"ERROR ON INDEX_DATA: The row isn't in json format: '{row}'"
