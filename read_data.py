@@ -115,7 +115,7 @@ class DataProcessor:
             label_encoder = LabelEncoder()
             try:
                 label_encoder.fit(self.set_labels)
-            except AttributeError:
+            except (AttributeError, ValueError):
                 self.set_labels = set()
         label_encoder.fit(labels)
         self.set_labels.update(label_encoder.classes_)
