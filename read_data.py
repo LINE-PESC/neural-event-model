@@ -12,7 +12,7 @@ import sys
 from gensim import models
 from scipy.sparse import csr_matrix
 from six import iteritems
-from sklearn.preprocessing import normalize
+from sklearn.preprocessing import normalize, LabelEncoder
 from typing import List
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout,
@@ -27,6 +27,7 @@ class DataProcessor:
     def __init__(self):
         # All types of arguments seen by the processor. A0, A1, etc.
         self.arg_types = []
+        self.set_labels = set()
         self.max_sentence_length = None
         self.max_arg_length = None
         self.word_index = {"NONE": 0, "UNK": 1}    # None is padding, UNK is OOV.
@@ -104,17 +105,21 @@ class DataProcessor:
                                          for token in tokens]
         return token_indices
 
-    @staticmethod
-    def _make_one_hot(label_indices):
+    def _make_one_hot(self, labels, label_encoder=None):
         '''
-        Takes integer indices and converts them into one hot representations.
+        Takes labels and converts them into one hot representations.
         '''
-        if label_indices is None:
+        if labels is None:
             return None
-        output_size = (len(label_indices), np.max(label_indices) + 1)
-        output = np.zeros(output_size)
-        output[np.arange(len(label_indices)), label_indices] = 1
-        return output
+        if (label_encoder is None):
+            label_encoder = LabelEncoder()
+            try:
+                label_encoder.fit(self.set_labels)
+            except AttributeError:
+                self.set_labels = set()
+        label_encoder.fit(labels)
+        self.set_labels.update(label_encoder.classes_)
+        return label_encoder.transform(labels) 
 
     def pad_data(self, indexed_data, pad_info, use_event_structure=True):
         '''
