@@ -27,11 +27,12 @@ class DataProcessor:
     def __init__(self):
         # All types of arguments seen by the processor. A0, A1, etc.
         self.arg_types = []
-        self.set_labels = set()
         self.max_sentence_length = None
         self.max_arg_length = None
         self.word_index = {"NONE": 0, "UNK": 1}    # None is padding, UNK is OOV.
-
+        self.label_encoder = None
+        self.set_labels = set()
+    
     def index_data(self, filename, tokenize=None, add_new_words=True, pad_info=None, \
                    include_sentences_in_events=False, use_event_structure=True):
         '''
@@ -109,17 +110,29 @@ class DataProcessor:
         '''
         Takes labels and converts them into one hot representations.
         '''
+        try:
+            _ = self.label_encoder
+        except AttributeError:
+            self.label_encoder = None
+        try:
+            _ = self.set_labels
+        except AttributeError:
+            self.set_labels = set()
+        
         if labels is None:
             return None
-        if (label_encoder is None):
-            label_encoder = LabelEncoder()
-            try:
-                label_encoder.fit(self.set_labels)
-            except (AttributeError, ValueError):
-                self.set_labels = set()
-        label_encoder.fit(labels)
-        self.set_labels.update(label_encoder.classes_)
-        return label_encoder.transform(labels) 
+        if (label_encoder is not None):
+            self.label_encoder = label_encoder
+        else:
+            if (self.label_encoder is None):
+                self.label_encoder = LabelEncoder()
+                try:
+                    self.label_encoder.fit(self.set_labels)
+                except ValueError:
+                    pass
+        self.label_encoder.fit(labels)
+        self.set_labels.update(self.label_encoder.classes_)
+        return self.label_encoder.transform(labels) 
 
     def pad_data(self, indexed_data, pad_info, use_event_structure=True):
         '''
