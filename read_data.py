@@ -228,10 +228,10 @@ class DataProcessor:
         Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
         '''
         LOGGER.info("Begin of reading pretrained word embeddings ...")
-        if embedding_file.find('.txt') < 0:
-            (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
-        else:
+        if ('.txt' in embedding_file):
             (pretrained_embedding, embedding_size) = self._get_embedding_from_txt(embedding_file)
+        else:
+            (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
         embedding = np.array(list(pretrained_embedding.values()))
         low_embedding = embedding.min(axis=0)
         high_embedding = embedding.max(axis=0) + np.finfo(embedding.dtype).eps
