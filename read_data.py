@@ -244,6 +244,8 @@ class DataProcessor:
                 count_words_pretrained_embedding += 1
         # normalize embedding features with l2-norm
         embedding = normalize(embedding, axis=0)
+        embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
+        #embedding[self.word_index["UNK"]] = np.zeros(embedding_size)
         LOGGER.info("End of reading pretrained word embeddings.")
         string_proportion = "Proportion of pre-embedding words: %.2f%%" % (count_words_pretrained_embedding * 100 / len(self.word_index))
         string_sep = "=" * len(string_proportion)
