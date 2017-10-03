@@ -239,7 +239,8 @@ class DataProcessor:
         embedding = np.array(list(pretrained_embedding.values()))
         low_embedding = embedding.min(axis=0)
         high_embedding = embedding.max(axis=0) + np.finfo(embedding.dtype).eps
-        shape_embedding = (len(self.word_index), embedding_size)
+        len_word_index = len(self.word_index)
+        shape_embedding = (len_word_index, embedding_size)
         embedding = np.random.uniform(low_embedding, high_embedding, shape_embedding)
         count_words_pretrained_embedding = 0
         for word in self.word_index:
@@ -251,8 +252,9 @@ class DataProcessor:
         embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
         #embedding[self.word_index["UNK"]] = np.zeros(embedding_size)
         LOGGER.info("End of reading pretrained word embeddings.")
-        string_proportion = ("Proportion of pre-embedding words: %.2f%% (%i / %i)" % (count_words_pretrained_embedding * 100 / len(self.word_index)), \
-                             count_words_pretrained_embedding, len(self.word_index))
+        len_word_index = len(self.word_index)
+        proportion = (count_words_pretrained_embedding * 100.0) / len_word_index
+        string_proportion = f"Proportion of pre-embedding words: {proportion:%.2f}%% ({count_words_pretrained_embedding} / {len_word_index})"
         string_sep = "=" * len(string_proportion)
         LOGGER.info(string_sep)
         LOGGER.info(string_proportion)
