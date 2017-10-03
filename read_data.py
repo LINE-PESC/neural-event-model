@@ -232,6 +232,10 @@ class DataProcessor:
             (pretrained_embedding, embedding_size) = self._get_embedding_from_txt(embedding_file)
         else:
             (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
+        # adding words pretrained still aren't in word_index
+        tokens = list(pretrained_embedding.keys() - self.word_index.keys())
+        for token in tokens:
+            self.word_index[token] = len(self.word_index)
         embedding = np.array(list(pretrained_embedding.values()))
         low_embedding = embedding.min(axis=0)
         high_embedding = embedding.max(axis=0) + np.finfo(embedding.dtype).eps
