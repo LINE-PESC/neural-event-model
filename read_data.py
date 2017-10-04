@@ -223,7 +223,7 @@ class DataProcessor:
             pad_info["max_sentence_length"] = self.max_sentence_length
         return pad_info
 
-    def get_embedding(self, embedding_file):
+    def get_embedding(self, embedding_file, add_extra_words = False):
         '''
         Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
         '''
@@ -232,10 +232,11 @@ class DataProcessor:
             (pretrained_embedding, embedding_size) = self._get_embedding_from_txt(embedding_file)
         else:
             (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
-        # adding words pretrained still aren't in word_index
-        tokens = list(pretrained_embedding.keys() - self.word_index.keys())
-        for token in tokens:
-            self.word_index[token] = len(self.word_index)
+        if add_extra_words:
+            # adding words pretrained still aren't in word_index        
+            tokens = list(pretrained_embedding.keys() - self.word_index.keys())
+            for token in tokens:
+                self.word_index[token] = len(self.word_index)
         embedding = np.array(list(pretrained_embedding.values()))
         low_embedding = embedding.min(axis=0)
         high_embedding = embedding.max(axis=0) + np.finfo(embedding.dtype).eps
@@ -253,13 +254,15 @@ class DataProcessor:
         #embedding[self.word_index["UNK"]] = np.zeros(embedding_size)
         LOGGER.info("End of reading pretrained word embeddings.")
         proportion = (count_words_pretrained_embedding * 100.0) / len_word_index
-        string_proportion = f"Proportion of pre-embedding words: {proportion:.2f}% ({count_words_pretrained_embedding} / {len_word_index}).\tIncluding {len(tokens)} extra tokens."
+        string_proportion = f"Proportion of pre-embedding words: {proportion:.2f}% ({count_words_pretrained_embedding} / {len_word_index})."
+        if add_extra_words:
+            string_proportion = f"{string_proportion}\tIncluding {len(tokens)} extra tokens."
         string_sep = "=" * len(string_proportion)
         LOGGER.info(string_sep)
         LOGGER.info(string_proportion)
         LOGGER.info(string_sep)
         return embedding, count_words_pretrained_embedding
-
+    
     def _get_embedding_from_bin(self, embedding_file):
         '''
         Reads in a pretrained embedding bin file, and returns a numpy array with vectors for words in word index.
