@@ -252,9 +252,8 @@ class DataProcessor:
         embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
         #embedding[self.word_index["UNK"]] = np.zeros(embedding_size)
         LOGGER.info("End of reading pretrained word embeddings.")
-        len_word_index = len(self.word_index)
         proportion = (count_words_pretrained_embedding * 100.0) / len_word_index
-        string_proportion = f"Proportion of pre-embedding words: {proportion:.2f}% ({count_words_pretrained_embedding} / {len_word_index})"
+        string_proportion = f"Proportion of pre-embedding words: {proportion:.2f}% ({count_words_pretrained_embedding} / {len_word_index}).\tIncluding {len(tokens)} extra tokens."
         string_sep = "=" * len(string_proportion)
         LOGGER.info(string_sep)
         LOGGER.info(string_proportion)
