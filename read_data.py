@@ -51,7 +51,7 @@ class DataProcessor:
                 indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, min_args_event=min_args_event))
                 rows_buffer.clear()
         indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, min_args_event=min_args_event))
-        LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows}")
+        LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows} (with min of {min_args_event} args)")
         inputs, labels = self.pad_data(indexed_data, pad_info, use_event_structure)
         return inputs, self._make_one_hot(labels)
     
