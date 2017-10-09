@@ -33,8 +33,8 @@ class DataProcessor:
         self.label_encoder = None
         self.set_labels = set()
     
-    def index_data(self, filename, tokenize=None, add_new_words=True, pad_info=None, \
-                   include_sentences_in_events=False, use_event_structure=True):
+    def index_data(self, filename, tokenize=None, add_new_words=True, pad_info=None, include_sentences_in_events=False, \
+                   use_event_structure=True, min_args_event=1):
         '''
         Read data from file, and return indexed inputs. If this is for test, do not add new words to the
         vocabulary (treat them as unk). pad_info is applicable when we want to pad data to a pre-specified
@@ -48,15 +48,15 @@ class DataProcessor:
             rows_buffer.append(row)
             count_rows += 1
             if (len(rows_buffer) >= 1000):
-                indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events))
+                indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, min_args_event=min_args_event))
                 rows_buffer.clear()
-        indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events))
+        indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, min_args_event=min_args_event))
         LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows}")
         inputs, labels = self.pad_data(indexed_data, pad_info, use_event_structure)
         return inputs, self._make_one_hot(labels)
     
     def _index_data_batch(self, rows_batch, tokenize=None, add_new_words=True, include_sentences_in_events=False, \
-                          min_event_structure=1, max_event_structure=1):
+                          min_event_structure=1, max_event_structure=1, min_args_event=1):
         indexed_data = []
         for row in rows_batch:
             row = row.strip()
@@ -74,8 +74,11 @@ class DataProcessor:
                         # consider only first event level 
                         datum_event_structure = datum_event_structure[0]
                     else:
-                        # discard sentences without event or without number of event levels expected and continue reading
+                        # discards sentences without event or without number of event levels expected and continue reading
                         continue
+                if (min_args_event is not None) and (len(datum_event_structure.keys()) < max(min_args_event, 1)):
+                    # discards sentences with a number of insufficient arguments from an event
+                    continue
                 indexed_event_args = {key: self._index_string(datum_event_structure[key], tokenize=tokenize, add_new_words=add_new_words) \
                                       for key in datum_event_structure.keys()}
                 if include_sentences_in_events:
