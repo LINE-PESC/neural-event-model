@@ -14,6 +14,7 @@ from scipy.sparse import csr_matrix
 from six import iteritems
 from sklearn.preprocessing import normalize, LabelEncoder
 from typing import List
+from builtins import isinstance
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout,
                     format='[%(asctime)s]%(levelname)s(%(name)s): %(message)s')
@@ -101,7 +102,11 @@ class DataProcessor:
         return indexed_data
     
     def _index_string(self, string: str, tokenize=None, add_new_words=True):
-        tokens = string.lower().split() if (tokenize is None) else tokenize(string)
+        tokenize = [] if (tokenize is None) else (tokenize if isinstance(tokenize, list) else [tokenize])
+        for tokenizer in tokenize:
+            tokens = tokenizer(string)
+            string = " ".join(tokens)
+        tokens = string.lower().split()
         for token in tokens:
             if token not in self.word_index and add_new_words:
                 self.word_index[token] = len(self.word_index)
