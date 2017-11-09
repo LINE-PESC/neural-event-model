@@ -102,7 +102,7 @@ class DataProcessor:
         return indexed_data
     
     def _index_string(self, string: str, tokenize=None, add_new_words=True):
-        tokenize = [] if (tokenize is None) else (tokenize if isinstance(tokenize, list) else [tokenize])
+        tokenize = [] if (tokenize is None) else (list(tokenize) if isinstance(tokenize, (list, tuple)) else [tokenize])
         for tokenizer in tokenize:
             tokens = tokenizer(string)
             string = " ".join(tokens)
