@@ -245,11 +245,11 @@ class DataProcessor:
             tokens = list(pretrained_embedding.keys() - self.word_index.keys())
             for token in tokens:
                 self.word_index[token] = len(self.word_index)
+        len_word_index = len(self.word_index)
+        shape_embedding = (len_word_index, embedding_size)
         embedding = np.array(list(pretrained_embedding.values()))
         low_embedding = embedding.min(axis=0)
         high_embedding = embedding.max(axis=0) + np.finfo(embedding.dtype).eps
-        len_word_index = len(self.word_index)
-        shape_embedding = (len_word_index, embedding_size)
         embedding = np.random.uniform(low_embedding, high_embedding, shape_embedding)
         count_words_pretrained_embedding = 0
         for word in self.word_index:
@@ -259,7 +259,7 @@ class DataProcessor:
         # normalize embedding features with l2-norm
         embedding = normalize(embedding, axis=0)
         embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
-        #embedding[self.word_index["UNK"]] = np.zeros(embedding_size)
+        embedding[self.word_index["UNK"]] = np.zeros(embedding_size)
         LOGGER.info("End of reading pretrained word embeddings.")
         proportion = (count_words_pretrained_embedding * 100.0) / len_word_index
         string_proportion = f"Proportion of pre-embedding words: {proportion:.2f}% ({count_words_pretrained_embedding} / {len_word_index})."
