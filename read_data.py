@@ -30,7 +30,7 @@ class DataProcessor:
         self.arg_types = []
         self.max_sentence_length = None
         self.max_arg_length = None
-        self.word_index = {"NONE": 0, "UNK": 1}    # None is padding, UNK is OOV.
+        self.word_index = {"NONE": 0, "UNK": 1}  # NONE is padding, UNK is OOV.
         self.label_encoder = None
         self.set_labels = set()
     
@@ -231,7 +231,7 @@ class DataProcessor:
             pad_info["max_sentence_length"] = self.max_sentence_length
         return pad_info
 
-    def get_embedding(self, embedding_file, add_extra_words = False):
+    def get_embedding(self, embedding_file, add_extra_words=False):
         '''
         Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
         '''
@@ -248,18 +248,23 @@ class DataProcessor:
         len_word_index = len(self.word_index)
         shape_embedding = (len_word_index, embedding_size)
         embedding = np.array(list(pretrained_embedding.values()))
-        low_embedding = embedding.min(axis=0)
-        high_embedding = embedding.max(axis=0) + np.finfo(embedding.dtype).eps
-        embedding = np.random.uniform(low_embedding, high_embedding, shape_embedding)
+        #eps = np.finfo(embedding.dtype).eps
+        #low_embedding = embedding.min(axis=0)
+        #high_embedding = embedding.max(axis=0) + eps
+        #LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}\tEMBEDDING MIN-ABS: {np.amin(np.absolute(embedding))}")
+        embedding = np.zeros(shape_embedding) #np.random.uniform(low_embedding, high_embedding, shape_embedding)
         count_words_pretrained_embedding = 0
         for word in self.word_index:
             if word in pretrained_embedding:
                 embedding[self.word_index[word]] = pretrained_embedding[word]
                 count_words_pretrained_embedding += 1
+        low_embedding = embedding.min(axis=0)
+        high_embedding = embedding.max(axis=0)
+        LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}")
+        embedding[self.word_index["UNK"]] += np.finfo(embedding.dtype).eps
         # normalize embedding features with l2-norm
         embedding = normalize(embedding, axis=0)
-        embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
-        embedding[self.word_index["UNK"]] = np.zeros(embedding_size)
+        #embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
         LOGGER.info("End of reading pretrained word embeddings.")
         proportion = (count_words_pretrained_embedding * 100.0) / len_word_index
         string_proportion = f"Proportion of pre-embedding words: {proportion:.2f}% ({count_words_pretrained_embedding} / {len_word_index})."
