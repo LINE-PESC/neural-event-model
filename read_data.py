@@ -265,6 +265,10 @@ class DataProcessor:
         # normalize embedding features with l2-norm
         embedding = normalize(embedding, axis=0)
         #embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
+        low_embedding = embedding.min(axis=0)
+        high_embedding = embedding.max(axis=0)
+        LOGGER.info(f"NORMALIZED EMBEDDING LOW: {low_embedding.min()}\tNORMALIZED EMBEDDING HIGH: {high_embedding.min()}")
+        
         LOGGER.info("End of reading pretrained word embeddings.")
         proportion = (count_words_pretrained_embedding * 100.0) / len_word_index
         string_proportion = f"Proportion of pre-embedding words: {proportion:.2f}% ({count_words_pretrained_embedding} / {len_word_index})."
