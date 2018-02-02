@@ -260,14 +260,17 @@ class DataProcessor:
                 count_words_pretrained_embedding += 1
         low_embedding = embedding.min(axis=0)
         high_embedding = embedding.max(axis=0)
-        LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}")
-        embedding[self.word_index["UNK"]] += np.finfo(embedding.dtype).eps
-        # normalize embedding features with l2-norm
-        embedding = normalize(embedding, axis=0)
+        LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}")        
+        # normalize embeddings with l2-norm
+        # axis used to normalize the data along. If 1, independently normalize each sample, otherwise (if 0) normalize each feature
+        embedding = normalize(embedding, axis=1) 
         #embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
         low_embedding = embedding.min(axis=0)
         high_embedding = embedding.max(axis=0)
         LOGGER.info(f"NORMALIZED EMBEDDING LOW: {low_embedding.min()}\tNORMALIZED EMBEDDING HIGH: {high_embedding.min()}")
+        
+        # Each term without word-embedding receives a representation very close to the origin of the vector space, but not zero.
+        embedding[self.word_index["UNK"]] += np.finfo(embedding.dtype).eps
         
         LOGGER.info("End of reading pretrained word embeddings.")
         proportion = (count_words_pretrained_embedding * 100.0) / len_word_index
