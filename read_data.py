@@ -53,8 +53,8 @@ class DataProcessor:
                 rows_buffer.clear()
         indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, min_args_event=min_args_event))
         LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows} (with min of {min_args_event} args)")
-        inputs, labels = self.pad_data(indexed_data, pad_info, use_event_structure)
-        return inputs, self._make_one_hot(labels)
+        inputs, labels, metadatas = self.pad_data(indexed_data, pad_info, use_event_structure)
+        return inputs, self._make_one_hot(labels), metadatas
     
     def _index_data_batch(self, rows_batch, tokenize=None, add_new_words=True, include_sentences_in_events=False, \
                           min_event_structure=1, max_event_structure=1, min_args_event=1):
@@ -84,17 +84,22 @@ class DataProcessor:
                                       for key in datum_event_structure.keys()}
                 if include_sentences_in_events:
                     indexed_event_args["sentence"] = indexed_sentence
+                indexed_row = [indexed_sentence, indexed_event_args]
                 try:
                     label = datum["meta_info"][0]
+                    indexed_row.append(label)
+                    try:
+                        metadata = datum["meta_info"][1:]
+                        indexed_row.append(metadata)
+                    except:
+                        pass
                 except:
                     try:
                         label = datum["meta_info"]["label"]
+                        indexed_row.append(label)
                     except:
-                        label = None
-                if label is None:
-                    indexed_data.append((indexed_sentence, indexed_event_args))
-                else:
-                    indexed_data.append((indexed_sentence, indexed_event_args, label))
+                        pass
+                indexed_data.append(tuple(indexed_row))
             except json.decoder.JSONDecodeError:
                 if (len(row.strip()) > 0):
                     warn_msg = f"ERROR ON INDEX_DATA: The row isn't in json format: '{row}'"
@@ -152,7 +157,13 @@ class DataProcessor:
         if not pad_info:
             pad_info = {}
         labels = None
-        if len(indexed_data[0]) > 2:
+        metadatas = None
+        len_indexed_data = len(indexed_data[0])
+        if len_indexed_data > 3:
+            indexed_sentences, indexed_event_structures, labels, metadatas = zip(*indexed_data)
+            labels = np.asarray(labels)
+            metadatas = np.asarray(metadatas)
+        elif len_indexed_data > 2:
             indexed_sentences, indexed_event_structures, labels = zip(*indexed_data)
             labels = np.asarray(labels)
         else:
@@ -205,7 +216,7 @@ class DataProcessor:
         else:
             event_inputs = None
             inputs = np.asarray(sentence_inputs)
-        return inputs, labels
+        return inputs, labels, metadatas
 
     def _pad_indexed_string(self, indexed_string: List[int], max_string_length: int):
         '''

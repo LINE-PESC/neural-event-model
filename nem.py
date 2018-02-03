@@ -152,8 +152,8 @@ class NEM:
         Read in a file and use the data processor to make train or test inputs.
         '''
         add_new_words = not for_test
-        sentence_inputs, event_inputs, labels = self.data_processor.index_data(filename, add_new_words, pad_info,
-                                                                               include_sentences_in_events)
+        sentence_inputs, event_inputs, labels, _ = self.data_processor.index_data(filename, add_new_words, pad_info, \
+                                                                                  include_sentences_in_events)
         if self.use_event_structure:
             return event_inputs, labels
         else:
