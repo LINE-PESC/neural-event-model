@@ -106,17 +106,20 @@ class DataProcessor:
         return indexed_data
     
     def _index_string(self, string: str, tokenize=None, add_new_words=True):
-        tokenize = [] if (tokenize is None) else (list(tokenize) if isinstance(tokenize, (list, tuple)) else [tokenize])
-        for tokenizer in tokenize:
-            tokens = tokenizer(string)
-            string = " ".join(tokens)
-        tokens = string.lower().split()
+        tokens = self.apply_tokenize_func(string, tokenize).lower().split()        
         for token in tokens:
             if token not in self.word_index and add_new_words:
                 self.word_index[token] = len(self.word_index)
         token_indices = [self.word_index[token] if token in self.word_index else self.word_index["UNK"] \
                                          for token in tokens]
         return token_indices
+
+    def apply_tokenize_func(self, string: str, tokenize=None):
+        tokenize = [] if (tokenize is None) else (list(tokenize) if isinstance(tokenize, (list, tuple)) else [tokenize])
+        for tokenizer in tokenize:
+            tokens = tokenizer(string)
+            string = " ".join(tokens)
+        return string
 
     def _make_one_hot(self, labels, label_encoder=None):
         '''
