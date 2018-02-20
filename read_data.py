@@ -56,7 +56,7 @@ class DataProcessor:
                                                    min_args_event=min_args_event, return_data=return_data))
         LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows} (with min of {min_args_event} args)")
         inputs, labels, datasrc = self.pad_data(indexed_data, pad_info, use_event_structure, return_data=return_data)
-        return inputs, self._make_one_hot(labels), datasrc if return_data else inputs, self._make_one_hot(labels)
+        return (inputs, self._make_one_hot(labels), datasrc) if return_data else (inputs, self._make_one_hot(labels))
     
     def _index_data_batch(self, rows_batch, tokenize=None, add_new_words=True, include_sentences_in_events=False, \
                           min_event_structure=1, max_event_structure=1, min_args_event=1, return_data=False):

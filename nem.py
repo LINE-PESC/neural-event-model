@@ -152,12 +152,10 @@ class NEM:
         Read in a file and use the data processor to make train or test inputs.
         '''
         add_new_words = not for_test
-        sentence_inputs, event_inputs, labels, _ = self.data_processor.index_data(filename, add_new_words, pad_info, \
-                                                                                  include_sentences_in_events)
-        if self.use_event_structure:
-            return event_inputs, labels
-        else:
-            return sentence_inputs, labels
+        (event_inputs, labels) = self.data_processor.index_data(filename, add_new_words=add_new_words, pad_info=pad_info, \
+                                                              include_sentences_in_events=include_sentences_in_events, \
+                                                              use_event_structure=self.use_event_structure)
+        return event_inputs, labels
 
     def _save_model(self, epoch: int):
         model_file = "%s_%d.h5" % (self.model_prefix, epoch)
