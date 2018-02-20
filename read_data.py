@@ -35,7 +35,7 @@ class DataProcessor:
         self.set_labels = set()
     
     def index_data(self, filename, tokenize=None, add_new_words=True, pad_info=None, include_sentences_in_events=False, \
-                   use_event_structure=True, min_args_event=1):
+                   use_event_structure=True, min_args_event=1, return_data=False):
         '''
         Read data from file, and return indexed inputs. If this is for test, do not add new words to the
         vocabulary (treat them as unk). pad_info is applicable when we want to pad data to a pre-specified
@@ -49,15 +49,17 @@ class DataProcessor:
             rows_buffer.append(row)
             count_rows += 1
             if (len(rows_buffer) >= 1000):
-                indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, min_args_event=min_args_event))
+                indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
+                                                           min_args_event=min_args_event, return_data=return_data))
                 rows_buffer.clear()
-        indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, min_args_event=min_args_event))
+        indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
+                                                   min_args_event=min_args_event, return_data=return_data))
         LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows} (with min of {min_args_event} args)")
-        inputs, labels, metadatas = self.pad_data(indexed_data, pad_info, use_event_structure)
-        return inputs, self._make_one_hot(labels), metadatas
+        inputs, labels, datasrc = self.pad_data(indexed_data, pad_info, use_event_structure, return_data=return_data)
+        return inputs, self._make_one_hot(labels), datasrc if return_data else inputs, self._make_one_hot(labels)
     
     def _index_data_batch(self, rows_batch, tokenize=None, add_new_words=True, include_sentences_in_events=False, \
-                          min_event_structure=1, max_event_structure=1, min_args_event=1):
+                          min_event_structure=1, max_event_structure=1, min_args_event=1, return_data=False):
         indexed_data = []
         for row in rows_batch:
             row = row.strip()
@@ -88,17 +90,14 @@ class DataProcessor:
                 try:
                     label = datum["meta_info"][0]
                     indexed_row.append(label)
-                    try:
-                        metadata = datum["meta_info"][1:]
-                        indexed_row.append(metadata)
-                    except:
-                        pass
                 except:
                     try:
-                        label = datum["meta_info"]["label"]
+                        label = datum["label"]
                         indexed_row.append(label)
                     except:
                         pass
+                if return_data:
+                    indexed_row.append(datum)
                 indexed_data.append(tuple(indexed_row))
             except json.decoder.JSONDecodeError:
                 if (len(row.strip()) > 0):
@@ -147,7 +146,7 @@ class DataProcessor:
         self.set_labels.update(self.label_encoder.classes_)
         return self.label_encoder.transform(labels) 
 
-    def pad_data(self, indexed_data, pad_info, use_event_structure=True):
+    def pad_data(self, indexed_data, pad_info, use_event_structure=True, return_data=False):
         '''
         Takes a list of tuples containing indexed sentences, indexed event structures and labels, and returns numpy
         arrays.
@@ -157,17 +156,22 @@ class DataProcessor:
         if not pad_info:
             pad_info = {}
         labels = None
-        metadatas = None
+        datasrc = None
         len_indexed_data = len(indexed_data[0])
+        zip_indexed_data = zip(*indexed_data)
         if len_indexed_data > 3:
-            indexed_sentences, indexed_event_structures, labels, metadatas = zip(*indexed_data)
+            indexed_sentences, indexed_event_structures, labels, datasrc = zip_indexed_data
             labels = np.asarray(labels)
-            metadatas = np.asarray(metadatas)
-        elif len_indexed_data > 2:
-            indexed_sentences, indexed_event_structures, labels = zip(*indexed_data)
-            labels = np.asarray(labels)
+            datasrc = np.asarray(datasrc)
+        elif len_indexed_data == 3:
+            if return_data:
+                indexed_sentences, indexed_event_structures, datasrc = zip_indexed_data
+                datasrc = np.asarray(datasrc)
+            else:
+                indexed_sentences, indexed_event_structures, labels = zip_indexed_data
+                labels = np.asarray(labels)
         else:
-            indexed_sentences, indexed_event_structures = zip(*indexed_data)
+            indexed_sentences, indexed_event_structures = zip_indexed_data
         event_structures_have_sentences = False
         if "sentence" in indexed_event_structures[0]:
             # This means index_data included sentences in event structures. We need to pad accordingly.
@@ -216,7 +220,8 @@ class DataProcessor:
         else:
             event_inputs = None
             inputs = np.asarray(sentence_inputs)
-        return inputs, labels, metadatas
+        
+        return inputs, labels, datasrc
 
     def _pad_indexed_string(self, indexed_string: List[int], max_string_length: int):
         '''
