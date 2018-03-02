@@ -25,6 +25,7 @@ class DataProcessor:
     '''
     Read in data in json format, index and vectorize words, preparing data for train or test.
     '''
+
     def __init__(self):
         # All types of arguments seen by the processor. A0, A1, etc.
         self.arg_types = []
@@ -84,6 +85,13 @@ class DataProcessor:
                     continue
                 indexed_event_args = {key: self._index_string(datum_event_structure[key], tokenize=tokenize, add_new_words=add_new_words) \
                                       for key in datum_event_structure.keys()}
+                
+                # After index with stemming some args could be empty, so filter again
+                indexed_event_args = {key: value for key, value in indexed_event_args.items() if len(value.trim()) > 0}
+                if (min_args_event is not None) and (len(datum_event_structure.keys()) < max(min_args_event, 1)):
+                    # discards sentences with a number of insufficient arguments from an event
+                    continue
+                
                 if include_sentences_in_events:
                     indexed_event_args["sentence"] = indexed_sentence
                 indexed_row = [indexed_sentence, indexed_event_args]
@@ -267,11 +275,11 @@ class DataProcessor:
         len_word_index = len(self.word_index)
         shape_embedding = (len_word_index, embedding_size)
         embedding = np.array(list(pretrained_embedding.values()))
-        #eps = np.finfo(embedding.dtype).eps
-        #low_embedding = embedding.min(axis=0)
-        #high_embedding = embedding.max(axis=0) + eps
-        #LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}\tEMBEDDING MIN-ABS: {np.amin(np.absolute(embedding))}")
-        embedding = np.zeros(shape_embedding) #np.random.uniform(low_embedding, high_embedding, shape_embedding)
+        # eps = np.finfo(embedding.dtype).eps
+        # low_embedding = embedding.min(axis=0)
+        # high_embedding = embedding.max(axis=0) + eps
+        # LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}\tEMBEDDING MIN-ABS: {np.amin(np.absolute(embedding))}")
+        embedding = np.zeros(shape_embedding)  # np.random.uniform(low_embedding, high_embedding, shape_embedding)
         count_words_pretrained_embedding = 0
         for word in self.word_index:
             if word in pretrained_embedding:
@@ -285,7 +293,7 @@ class DataProcessor:
         # normalize embeddings with l2-norm
         # axis used to normalize the data along. If 1, independently normalize each sample, otherwise (if 0) normalize each feature
         embedding = normalize(embedding, axis=1)
-        #embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
+        # embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
         low_embedding = embedding.min(axis=0)
         high_embedding = embedding.max(axis=0)
         LOGGER.info(f"NORMALIZED EMBEDDING LOW: {low_embedding.min()}\tNORMALIZED EMBEDDING HIGH: {high_embedding.min()}")
