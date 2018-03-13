@@ -87,7 +87,7 @@ class DataProcessor:
                                       for key in datum_event_structure.keys()}
                 
                 # After index with stemming some args could be empty, so filter again
-                indexed_event_args = {key: value for key, value in indexed_event_args.items() if len(value.trim()) > 0}
+                indexed_event_args = {key: value for key, value in indexed_event_args.items() if len(value) > 0}
                 if (min_args_event is not None) and (len(datum_event_structure.keys()) < max(min_args_event, 1)):
                     # discards sentences with a number of insufficient arguments from an event
                     continue
