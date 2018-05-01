@@ -274,7 +274,7 @@ class DataProcessor:
                 self.word_index[token] = len(self.word_index)
         len_word_index = len(self.word_index)
         shape_embedding = (len_word_index, embedding_size)
-        embedding = np.array(list(pretrained_embedding.values()))
+        #embedding = np.array(list(pretrained_embedding.values()))
         # eps = np.finfo(embedding.dtype).eps
         # low_embedding = embedding.min(axis=0)
         # high_embedding = embedding.max(axis=0) + eps
