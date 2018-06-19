@@ -66,20 +66,30 @@ class DataProcessor:
             row = row.strip()
             row = row if row.startswith(('{')) else '{' + '{'.join(row.split('{')[1:])
             row = row if row.endswith(('}')) else '}'.join(row.split('}')[:-1]) + '}'
+            datum = None
             try:
                 datum = json.loads(row)
-                indexed_sentence = self._index_string(datum["sentence"], tokenize=tokenize, add_new_words=add_new_words)
-                datum_event_structure = datum["event_structure"]
-                if isinstance(datum_event_structure, list):
-                    len_event_structure = len(datum_event_structure)
-                    if (len_event_structure > 0) \
-                    and ((min_event_structure is None) or (len_event_structure >= max(min_event_structure, 0))) \
-                    and ((max_event_structure is None) or (len_event_structure <= max(max_event_structure, 1))):                            
-                        # consider only first event level 
-                        datum_event_structure = datum_event_structure[0]
-                    else:
-                        # discards sentences without event or without number of event levels expected and continue reading
-                        continue
+            except json.decoder.JSONDecodeError:
+                if (len(row.strip()) > 0):
+                    warn_msg = f"ERROR ON INDEX_DATA: The row isn't in json format: '{row}'"
+                    LOGGER.warn(warn_msg)
+                continue
+            indexed_sentence = self._index_string(datum["sentence"], tokenize=tokenize, add_new_words=add_new_words)
+            datum_event_structure = datum["event_structure"]
+            list_datum_event_structure = []
+            if isinstance(datum_event_structure, list):
+                len_event_structure = len(datum_event_structure)
+                if (len_event_structure > 0) \
+                and ((min_event_structure is None) or (len_event_structure >= max(min_event_structure, 0))) \
+                and ((max_event_structure is None) or (len_event_structure <= max(max_event_structure, 1))):                            
+                    # consider only first event level 
+                    list_datum_event_structure = datum_event_structure #= datum_event_structure[0]
+                else:
+                    # discards sentences without event or without number of event levels expected and continue reading
+                    continue
+            else:
+                list_datum_event_structure = [datum_event_structure]
+            for datum_event_structure in list_datum_event_structure:
                 if (min_args_event is not None) and (len(datum_event_structure.keys()) < max(min_args_event, 1)):
                     # discards sentences with a number of insufficient arguments from an event
                     continue
@@ -107,10 +117,6 @@ class DataProcessor:
                 if return_data:
                     indexed_row.append(datum)
                 indexed_data.append(tuple(indexed_row))
-            except json.decoder.JSONDecodeError:
-                if (len(row.strip()) > 0):
-                    warn_msg = f"ERROR ON INDEX_DATA: The row isn't in json format: '{row}'"
-                    LOGGER.warn(warn_msg)
         return indexed_data
     
     def _index_string(self, string: str, tokenize=None, add_new_words=True):
