@@ -36,7 +36,7 @@ class DataProcessor:
         self.set_labels = set()
     
     def index_data(self, filename, tokenize=None, add_new_words=True, pad_info=None, include_sentences_in_events=False, \
-                   use_event_structure=True, min_args_event=1, return_data=False):
+                   use_event_structure=True, min_event_structure=1, max_event_structure=1, min_args_event=1, return_data=False):
         '''
         Read data from file, and return indexed inputs. If this is for test, do not add new words to the
         vocabulary (treat them as unk). pad_info is applicable when we want to pad data to a pre-specified
@@ -51,9 +51,11 @@ class DataProcessor:
             count_rows += 1
             if (len(rows_buffer) >= 1000):
                 indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
+                                                           min_event_structure=min_event_structure, max_event_structure=max_event_structure, \
                                                            min_args_event=min_args_event, return_data=return_data))
                 rows_buffer.clear()
         indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
+                                                   min_event_structure=min_event_structure, max_event_structure=max_event_structure, \
                                                    min_args_event=min_args_event, return_data=return_data))
         LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows} (with min of {min_args_event} args)")
         inputs, labels, datasrc = self.pad_data(indexed_data, pad_info, use_event_structure, return_data=return_data)
