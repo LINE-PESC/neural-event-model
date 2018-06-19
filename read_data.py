@@ -82,7 +82,6 @@ class DataProcessor:
                 if (len_event_structure > 0) \
                 and ((min_event_structure is None) or (len_event_structure >= max(min_event_structure, 0))) \
                 and ((max_event_structure is None) or (len_event_structure <= max(max_event_structure, 1))):                            
-                    # consider only first event level 
                     list_datum_event_structure = datum_event_structure #= datum_event_structure[0]
                 else:
                     # discards sentences without event or without number of event levels expected and continue reading
