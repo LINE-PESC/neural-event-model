@@ -99,7 +99,7 @@ class DataProcessor:
                 
                 # After index with stemming some args could be empty, so filter again
                 indexed_event_args = {key: value for key, value in indexed_event_args.items() if len(value) > 0}
-                if (min_args_event is not None) and (len(datum_event_structure.keys()) < max(min_args_event, 1)):
+                if (min_args_event is not None) and (len(indexed_event_args.keys()) < max(min_args_event, 1)):
                     # discards sentences with a number of insufficient arguments from an event
                     continue
                 
@@ -121,7 +121,7 @@ class DataProcessor:
         return indexed_data
     
     def _index_string(self, string: str, tokenize=None, add_new_words=True):
-        tokens = self.apply_tokenize_func(string, tokenize).lower().split()        
+        tokens = self.apply_tokenize_func(string, tokenize).lower().split()
         for token in tokens:
             if token not in self.word_index and add_new_words:
                 self.word_index[token] = len(self.word_index)
