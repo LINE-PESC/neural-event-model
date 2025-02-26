@@ -74,7 +74,7 @@ class DataProcessor:
             except json.decoder.JSONDecodeError:
                 if (len(row.strip()) > 0):
                     warn_msg = f"ERROR ON INDEX_DATA: The row isn't in json format: '{row}'"
-                    LOGGER.warn(warn_msg)
+                    LOGGER.warning(warn_msg)
                 continue
             indexed_sentence = self._index_string(datum["sentence"], tokenize=tokenize, add_new_words=add_new_words)
             datum_event_structure = datum["event_structure"]
