@@ -2,12 +2,14 @@
 Process data and prepare inputs for Neural Event Model.
 '''
 
+import sys
+import logging
+
 import bz2
 import gzip
 import json
-import logging
+import math
 import numpy as np
-import sys
 
 from gensim import models
 from scipy.sparse import csr_matrix
@@ -251,6 +253,7 @@ class DataProcessor:
         '''
         Pad and/or truncate an indexed string to the max length. Both padding and truncation happen from the left.
         '''
+        max_string_length = int(pow(2, int(math.log(max_string_length, 2)) + 1))
         string_length = len(indexed_string)
         # Padding on or truncating from the left
         padded_string = ([self.word_index["NONE"]] * (max_string_length - string_length) \
@@ -277,38 +280,38 @@ class DataProcessor:
         '''
         LOGGER.info("Begin of reading pretrained word embeddings ...")
         if ('.txt' in embedding_file):
-            (pretrained_embedding, embedding_size) = self._get_embedding_from_txt(embedding_file)
+            (pretrained_embedding, embedding_dim) = self._get_embedding_from_txt(embedding_file)
         else:
-            (pretrained_embedding, embedding_size) = self._get_embedding_from_bin(embedding_file)
+            (pretrained_embedding, embedding_dim) = self._get_embedding_from_bin(embedding_file)
         if add_extra_words:
             # adding words pretrained still aren't in word_index        
             tokens = list(pretrained_embedding.keys() - self.word_index.keys())
             for token in tokens:
                 self.word_index[token] = len(self.word_index)
         len_word_index = len(self.word_index)
-        shape_embedding = (len_word_index, embedding_size)
-        #embedding = np.array(list(pretrained_embedding.values()))
-        # eps = np.finfo(embedding.dtype).eps
-        # low_embedding = embedding.min(axis=0)
-        # high_embedding = embedding.max(axis=0) + eps
-        # LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}\tEMBEDDING MIN-ABS: {np.amin(np.absolute(embedding))}")
-        embedding = np.zeros(shape_embedding)  # np.random.uniform(low_embedding, high_embedding, shape_embedding)
+        shape_embedding = (len_word_index, embedding_dim)
+        #embedding_matrix = np.array(list(pretrained_embedding.values()))
+        # eps = np.finfo(embedding_matrix.dtype).eps
+        # low_embedding = embedding_matrix.min(axis=0)
+        # high_embedding = embedding_matrix.max(axis=0) + eps
+        # LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}\tEMBEDDING MIN-ABS: {np.amin(np.absolute(embedding_matrix))}")
+        embedding_matrix = np.zeros(shape_embedding)  # np.random.uniform(low_embedding, high_embedding, shape_embedding)
         count_words_pretrained_embedding = 0
         for word in self.word_index:
             if word in pretrained_embedding:
-                embedding[self.word_index[word]] = pretrained_embedding[word]
+                embedding_matrix[self.word_index[word]] = pretrained_embedding[word]
                 count_words_pretrained_embedding += 1
-        low_embedding = embedding.min(axis=0)
-        high_embedding = embedding.max(axis=0)
+        low_embedding = embedding_matrix.min(axis=0)
+        high_embedding = embedding_matrix.max(axis=0)
         LOGGER.info(f"EMBEDDING LOW: {low_embedding.min()}\tEMBEDDING HIGH: {high_embedding.min()}")   
         # Each term without word-embedding receives a representation very close to the origin of the vector space, but not zero.
-        embedding[self.word_index["UNK"]] += np.finfo(embedding.dtype).eps     
+        embedding_matrix[self.word_index["UNK"]] += np.finfo(embedding_matrix.dtype).eps     
         # normalize embeddings with l2-norm
         # axis used to normalize the data along. If 1, independently normalize each sample, otherwise (if 0) normalize each feature
-        embedding = normalize(embedding, axis=1)
-        # embedding[self.word_index["NONE"]] = np.zeros(embedding_size)
-        low_embedding = embedding.min(axis=0)
-        high_embedding = embedding.max(axis=0)
+        embedding_matrix = normalize(embedding_matrix, axis=1)
+        # embedding[self.word_index["NONE"]] = np.zeros(embedding_dim)
+        low_embedding = embedding_matrix.min(axis=0)
+        high_embedding = embedding_matrix.max(axis=0)
         LOGGER.info(f"NORMALIZED EMBEDDING LOW: {low_embedding.min()}\tNORMALIZED EMBEDDING HIGH: {high_embedding.min()}")
         
         LOGGER.info("End of reading pretrained word embeddings.")
@@ -320,7 +323,7 @@ class DataProcessor:
         LOGGER.info(string_sep)
         LOGGER.info(string_proportion)
         LOGGER.info(string_sep)
-        return embedding, count_words_pretrained_embedding
+        return embedding_matrix, count_words_pretrained_embedding
     
     def _get_embedding_from_bin(self, embedding_file):
         '''
@@ -330,27 +333,26 @@ class DataProcessor:
         pretrained_embedding = {}
         for word, vocab in sorted(iteritems(model.vocab), key=lambda item:-item[1].count):
             pretrained_embedding[word] = np.asarray(model.syn0[vocab.index])
-        embedding_size = model.syn0.shape[1]
-        return (pretrained_embedding, embedding_size)
+        embedding_dim = model.syn0.shape[1]
+        return (pretrained_embedding, embedding_dim)
 
     def _get_embedding_from_txt(self, embedding_file):
         '''
         Reads in a pretrained embedding txt file, and returns a numpy array with vectors for words in word index.
         '''
-        vector = None
+        array_coefs = None
+        embedding_dim = None
         pretrained_embedding = {}
         open_file = gzip.open if embedding_file.endswith('.gz') else (bz2.open if embedding_file.endswith('.bz2') else open)
         with open_file(embedding_file, "rt", encoding='utf-8') as opened_file:
             LOGGER.info(f"Reading pretrained word embeddings from file: {embedding_file}")
             for line in opened_file:
-                parts = line.strip().split()
-                if len(parts) == 2:
-                    continue
-                word = parts[0]
-                vector = [float(val) for val in parts[1:]]
-                pretrained_embedding[word] = np.asarray(vector)
-        embedding_size = len(vector)
-        return (pretrained_embedding, embedding_size)
+                word, coefs = line.strip().split(maxsplit=1)
+                array_coefs = np.fromstring(coefs, "f", sep=" ")
+                if len(array_coefs) > 1:
+                    pretrained_embedding[word] = array_coefs
+        embedding_dim = pretrained_embedding[list(pretrained_embedding.keys())[0]].shape[0]
+        return (pretrained_embedding, embedding_dim)
 
     def get_vocabulary_size(self):
         '''
