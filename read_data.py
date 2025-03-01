@@ -46,14 +46,15 @@ class DataProcessor:
         indexed_data = []
         open_file = gzip.open if filename.endswith('.gz') else (bz2.open if filename.endswith('.bz2') else open)
         count_rows = 0
-        for row in open_file(filename, mode='rt', encoding='utf-8', errors='replace'):
-            rows_buffer.append(row)
-            count_rows += 1
-            if (len(rows_buffer) >= 1000):
-                indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
-                                                           min_event_structure=min_event_structure, max_event_structure=max_event_structure, \
-                                                           min_args_event=min_args_event, return_data=return_data))
-                rows_buffer.clear()
+        with open_file(filename, mode='rt', encoding='utf-8', errors='replace') as opened_file:
+            for row in opened_file:
+                rows_buffer.append(row)
+                count_rows += 1
+                if (len(rows_buffer) >= 1000):
+                    indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
+                                                            min_event_structure=min_event_structure, max_event_structure=max_event_structure, \
+                                                            min_args_event=min_args_event, return_data=return_data))
+                    rows_buffer.clear()
         indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
                                                    min_event_structure=min_event_structure, max_event_structure=max_event_structure, \
                                                    min_args_event=min_args_event, return_data=return_data))
@@ -108,13 +109,13 @@ class DataProcessor:
                 indexed_row = [indexed_sentence, indexed_event_args]
                 try:
                     label = datum["meta_info"][0]
-                    indexed_row.append(label)
+                    indexed_row.append(label) # for test phase
                 except:
                     try:
                         label = datum["label"]
-                        indexed_row.append(label)
+                        indexed_row.append(label) # for test phase
                     except:
-                        pass
+                        pass # only for training phase
                 if return_data:
                     indexed_row.append(datum)
                 indexed_data.append(tuple(indexed_row))
@@ -169,7 +170,6 @@ class DataProcessor:
         Takes a list of tuples containing indexed sentences, indexed event structures and labels, and returns numpy
         arrays.
         '''
-        sentence_inputs = []
         # Setting max sentence length
         if not pad_info:
             pad_info = {}
@@ -199,39 +199,45 @@ class DataProcessor:
         else:
             self.max_sentence_length = max([len(indexed_sentence) for indexed_sentence in indexed_sentences])
         # Padding and/or truncating sentences
-        for indexed_sentence in indexed_sentences:
-            sentence_inputs.append(csr_matrix(self._pad_indexed_string(indexed_sentence, self.max_sentence_length)))
 
-        # Removing unnecessary arguments.
-        if "wanted_args" in pad_info:
-            self.arg_types = list(pad_info["wanted_args"])
-            if "V" not in self.arg_types:
-                self.arg_types = ["V"] + self.arg_types
-            if "sentence" not in self.arg_types and event_structures_have_sentences:
-                self.arg_types += ["sentence"]
-        else:
-            arg_types = []
-            for event_structure in indexed_event_structures:
-                arg_types += event_structure.keys()
-            self.arg_types = list(set(arg_types))
-        # Making ordered event argument indices, converting argument dicts into lists with a canonical order.
-        ordered_event_structures = []
-        for event_structure in indexed_event_structures:
-            ordered_event_structure = [event_structure[arg_type] if arg_type in event_structure else \
-                                       [self.word_index["NONE"]] for arg_type in self.arg_types]
-            ordered_event_structures.append(ordered_event_structure)
-        if "max_arg_length" in pad_info:
-            self.max_arg_length = pad_info["max_arg_length"]
-        else:
-            self.max_arg_length = max([max([len(arg) for arg in structure]) \
-                                       for structure in ordered_event_structures])
+        sentence_inputs = []
         event_inputs = []
-        for event_structure in ordered_event_structures:
-            event_inputs.append(csr_matrix([self._pad_indexed_string(indexed_arg, self.max_arg_length) \
-                                            for indexed_arg in event_structure]))
+        if not use_event_structure:
+            for indexed_sentence in indexed_sentences:
+                sentence_inputs.append(csr_matrix(self._pad_indexed_string(indexed_sentence, self.max_sentence_length)))
+        else:
+            # Removing unnecessary arguments.
+            if "wanted_args" in pad_info:
+                self.arg_types = list(pad_info["wanted_args"])
+                if "V" not in self.arg_types:
+                    self.arg_types = ["V"] + self.arg_types
+                if "sentence" not in self.arg_types and event_structures_have_sentences:
+                    self.arg_types += ["sentence"]
+            else:
+                arg_types = []
+                for event_structure in indexed_event_structures:
+                    arg_types += event_structure.keys()
+                self.arg_types = sorted(set(arg_types))
+            # Making ordered event argument indices, converting argument dicts into lists with a canonical order.
+            ordered_event_structures = []
+            for event_structure in indexed_event_structures:
+                ordered_event_structure = [event_structure[arg_type] if arg_type in event_structure else \
+                                        [self.word_index["NONE"]] for arg_type in self.arg_types]
+                ordered_event_structures.append(ordered_event_structure)
+            if "max_arg_length" in pad_info:
+                self.max_arg_length = pad_info["max_arg_length"]
+            else:
+                self.max_arg_length = max([max([len(arg) for arg in structure]) \
+                                        for structure in ordered_event_structures])
+            
+            for event_structure in ordered_event_structures:
+                event_inputs.append(csr_matrix([self._pad_indexed_string(indexed_arg, self.max_arg_length) \
+                                                for indexed_arg in event_structure]))
+        
         indexed_sentences = None
         indexed_event_structures = None
         ordered_event_structures = None
+        
         if use_event_structure:
             sentence_inputs = None
             inputs = np.asarray(event_inputs)
@@ -257,7 +263,7 @@ class DataProcessor:
         processed so far. This is useful to make test data the same size as train data.
         '''
         pad_info = {}
-        if self.arg_types is not None:
+        if self.arg_types is not None and len(self.arg_types) > 0:
             pad_info["wanted_args"] = self.arg_types
         if self.max_arg_length is not None:
             pad_info["max_arg_length"] = self.max_arg_length
@@ -331,15 +337,18 @@ class DataProcessor:
         '''
         Reads in a pretrained embedding txt file, and returns a numpy array with vectors for words in word index.
         '''
+        vector = None
         pretrained_embedding = {}
         open_file = gzip.open if embedding_file.endswith('.gz') else (bz2.open if embedding_file.endswith('.bz2') else open)
-        for line in open_file(embedding_file, mode='rt', encoding='utf-8'):
-            parts = line.strip().split()
-            if len(parts) == 2:
-                continue
-            word = parts[0]
-            vector = [float(val) for val in parts[1:]]
-            pretrained_embedding[word] = np.asarray(vector)
+        with open_file(embedding_file, "rt", encoding='utf-8') as opened_file:
+            LOGGER.info(f"Reading pretrained word embeddings from file: {embedding_file}")
+            for line in opened_file:
+                parts = line.strip().split()
+                if len(parts) == 2:
+                    continue
+                word = parts[0]
+                vector = [float(val) for val in parts[1:]]
+                pretrained_embedding[word] = np.asarray(vector)
         embedding_size = len(vector)
         return (pretrained_embedding, embedding_size)
 
