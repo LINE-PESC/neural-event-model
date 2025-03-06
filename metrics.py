@@ -3,6 +3,7 @@ We define some custom Keras metrics here that are specific to binary classificat
 '''
 
 from keras import backend as K
+from keras import ops as keras_ops
 
 
 def precision(y_true, y_pred):
@@ -10,11 +11,11 @@ def precision(y_true, y_pred):
     Custom Keras metric that measures the precision of a binary classifier.
     '''
     # Assuming index 1 is positive.
-    pred_indices = K.argmax(y_pred, axis=-1)
-    true_indices = K.argmax(y_true, axis=-1)
-    num_true_positives = K.sum(pred_indices * true_indices)
-    num_positive_predictions = K.sum(pred_indices)
-    return K.cast(num_true_positives / num_positive_predictions, K.floatx())
+    pred_indices = keras_ops.argmax(y_pred, axis=-1)
+    true_indices = keras_ops.argmax(y_true, axis=-1)
+    num_true_positives = keras_ops.sum(pred_indices * true_indices)
+    num_positive_predictions = keras_ops.sum(pred_indices)
+    return keras_ops.cast(num_true_positives / num_positive_predictions, K.floatx())
 
 
 def recall(y_true, y_pred):
@@ -22,11 +23,11 @@ def recall(y_true, y_pred):
     Custom Keras metric that measures the recall of a binary classifier.
     '''
     # Assuming index 1 is positive.
-    pred_indices = K.argmax(y_pred, axis=-1)
-    true_indices = K.argmax(y_true, axis=-1)
-    num_true_positives = K.sum(pred_indices * true_indices)
-    num_positive_truths = K.sum(true_indices)
-    return K.cast(num_true_positives / num_positive_truths, K.floatx())
+    pred_indices = keras_ops.argmax(y_pred, axis=-1)
+    true_indices = keras_ops.argmax(y_true, axis=-1)
+    num_true_positives = keras_ops.sum(pred_indices * true_indices)
+    num_positive_truths = keras_ops.sum(true_indices)
+    return keras_ops.cast(num_true_positives / num_positive_truths, K.floatx())
 
 
 def f1_score(y_true, y_pred):
@@ -35,4 +36,4 @@ def f1_score(y_true, y_pred):
     '''
     prec = precision(y_true, y_pred)
     rec = recall(y_true, y_pred)
-    return K.cast(2 * prec * rec / (prec + rec), K.floatx())
+    return keras_ops.cast(2 * prec * rec / (prec + rec), K.floatx())
