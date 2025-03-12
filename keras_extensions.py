@@ -49,14 +49,14 @@ class MaskedFlatten(Flatten):
     Flatten does not allow masked inputs. This class does.
     '''
     def __init__(self, **kwargs):
-        super(MaskedFlatten, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.supports_masking = True
 
     def call(self, inputs, mask=None):
         # Assuming the output will be passed through a dense layer after this.
         if mask is not None:
             inputs = __switch__(keras_ops.expand_dims(mask), inputs, keras_ops.zeros_like(inputs))
-        return super(MaskedFlatten, self).call(inputs)
+        return super().call(inputs)
 
     def compute_mask(self, inputs, mask=None):
         if mask is None:
