@@ -8,6 +8,7 @@ from keras import backend as K
 from keras.layers import Embedding, TimeDistributed, Flatten
 from keras import ops as keras_ops
 
+
 if K.backend() == 'torch':
     import torch as TORCH
     KBEND = TORCH
@@ -17,6 +18,7 @@ elif K.backend() == 'theano':
 else:
     import tensorflow as TF
     KBEND = TF
+
 
 class AnyShapeEmbedding(Embedding):
     '''
@@ -58,6 +60,13 @@ class MaskedFlatten(Flatten):
             inputs = __switch__(keras_ops.expand_dims(mask), inputs, keras_ops.zeros_like(inputs))
         return super().call(inputs)
 
+    def compute_output_spec(self, inputs, mask=None):
+        if mask is None:
+            return super().compute_output_spec(inputs)
+        else:
+            # TODO fazer funcionar com o mask
+            return super().compute_output_spec(inputs)
+    
     def compute_mask(self, inputs, mask=None):
         if mask is None:
             return None
