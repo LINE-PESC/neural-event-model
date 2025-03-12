@@ -57,7 +57,8 @@ class MaskedFlatten(Flatten):
     def call(self, inputs, mask=None):
         # Assuming the output will be passed through a dense layer after this.
         if mask is not None:
-            inputs = __switch__(keras_ops.expand_dims(mask), inputs, keras_ops.zeros_like(inputs))
+            inputs = __switch__(keras_ops.expand_dims(mask, axis=-1),
+                                inputs, keras_ops.zeros_like(inputs))
         return super().call(inputs)
 
     def compute_output_spec(self, inputs, mask=None):
@@ -76,17 +77,7 @@ class MaskedFlatten(Flatten):
                 # requiring the mask's ndim to be 1.
                 return keras_ops.any(mask, axis=-1)
             else:
-                return __flatten__(mask)
-
-
-def __flatten__(input):
-    '''
-    Keras' implementation of flatten does not work with masked inputs. This function selects the appropriate methods.
-    '''
-    if K.backend() == 'torch':
-        return KBEND.flatten(input)
-    else:
-        return KBEND.batch_flatten(input)
+                return Flatten()(mask)
 
 
 def __switch__(cond, then_tensor, else_tensor):
