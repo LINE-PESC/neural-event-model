@@ -5,6 +5,7 @@ Process data and prepare inputs for Neural Event Model.
 import sys
 import logging
 
+import os
 import bz2
 import gzip
 import json
@@ -17,6 +18,7 @@ from six import iteritems
 from sklearn.preprocessing import normalize, LabelEncoder
 from typing import List
 from builtins import isinstance
+from contextlib import contextmanager
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout,
                     format='[%(asctime)s]%(levelname)s(%(name)s): %(message)s')
@@ -37,8 +39,11 @@ class DataProcessor:
         self.label_encoder = None
         self.set_labels = set()
     
-    def index_data(self, filename, tokenize=None, add_new_words=True, pad_info=None, include_sentences_in_events=False, \
-                   use_event_structure=True, min_event_structure=1, max_event_structure=1, min_args_event=1, return_data=False):
+    def index_data(self, filename, tokenize=None, add_new_words=True,
+                   pad_info=None, include_sentences_in_events=False,
+                   use_event_structure=True, min_event_structure=1,
+                   max_event_structure=1, min_args_event=1,
+                   return_data=False, verbose=False):
         '''
         Read data from file, and return indexed inputs. If this is for test, do not add new words to the
         vocabulary (treat them as unk). pad_info is applicable when we want to pad data to a pre-specified
@@ -46,20 +51,30 @@ class DataProcessor:
         '''
         rows_buffer = []
         indexed_data = []
-        open_file = gzip.open if filename.endswith('.gz') else (bz2.open if filename.endswith('.bz2') else open)
         count_rows = 0
-        with open_file(filename, mode='rt', encoding='utf-8', errors='replace') as opened_file:
+        BUFFER_ROWS = 1000
+        with file_txt_buffered(filename, buffer_rows=BUFFER_ROWS,
+                               encoding='utf-8', errors='replace',
+                               verbose=verbose) as opened_file:
             for row in opened_file:
                 rows_buffer.append(row)
                 count_rows += 1
-                if (len(rows_buffer) >= 1000):
-                    indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
-                                                            min_event_structure=min_event_structure, max_event_structure=max_event_structure, \
-                                                            min_args_event=min_args_event, return_data=return_data))
+                if (len(rows_buffer) >= BUFFER_ROWS):
+                    indexed_data.extend(self._index_data_batch(rows_buffer,
+                                                               tokenize,
+                                                               add_new_words,
+                                                               include_sentences_in_events,
+                                                               min_event_structure=min_event_structure,
+                                                               max_event_structure=max_event_structure,
+                                                               min_args_event=min_args_event,
+                                                               return_data=return_data))
                     rows_buffer.clear()
-        indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words, include_sentences_in_events, \
-                                                   min_event_structure=min_event_structure, max_event_structure=max_event_structure, \
-                                                   min_args_event=min_args_event, return_data=return_data))
+        indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words,
+                                                   include_sentences_in_events,
+                                                   min_event_structure=min_event_structure,
+                                                   max_event_structure=max_event_structure,
+                                                   min_args_event=min_args_event,
+                                                   return_data=return_data))
         LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows} (with min of {min_args_event} args)")
         inputs, labels, datasrc = self.pad_data(indexed_data, pad_info, use_event_structure, return_data=return_data)
         return (inputs, self._make_one_hot(labels), datasrc) if return_data else (inputs, self._make_one_hot(labels))
@@ -274,13 +289,13 @@ class DataProcessor:
             pad_info["max_sentence_length"] = self.max_sentence_length
         return pad_info
 
-    def get_embedding(self, embedding_file, add_extra_words=False):
+    def get_embedding(self, embedding_file, add_extra_words=False, verbose=False):
         '''
         Reads in a pretrained embedding file, and returns a numpy array with vectors for words in word index.
         '''
         LOGGER.info("Begin of reading pretrained word embeddings ...")
         if ('.txt' in embedding_file):
-            (pretrained_embedding, embedding_dim) = self._get_embedding_from_txt(embedding_file)
+            (pretrained_embedding, embedding_dim) = self._get_embedding_from_txt(embedding_file, verbose)
         else:
             (pretrained_embedding, embedding_dim) = self._get_embedding_from_bin(embedding_file)
         if add_extra_words:
@@ -312,9 +327,11 @@ class DataProcessor:
         # embedding[self.word_index["NONE"]] = np.zeros(embedding_dim)
         low_embedding = embedding_matrix.min(axis=0)
         high_embedding = embedding_matrix.max(axis=0)
+
         LOGGER.info(f"NORMALIZED EMBEDDING LOW: {low_embedding.min()}\tNORMALIZED EMBEDDING HIGH: {high_embedding.min()}")
-        
+        LOGGER.info(f"Word embedding shape: {embedding_matrix.shape}")
         LOGGER.info("End of reading pretrained word embeddings.")
+        
         proportion = (count_words_pretrained_embedding * 100.0) / len_word_index
         string_proportion = f"Proportion of pre-embedding words: {proportion:.2f}% ({count_words_pretrained_embedding} / {len_word_index})."
         if add_extra_words:
@@ -336,15 +353,18 @@ class DataProcessor:
         embedding_dim = model.syn0.shape[1]
         return (pretrained_embedding, embedding_dim)
 
-    def _get_embedding_from_txt(self, embedding_file):
+    def _get_embedding_from_txt(self, embedding_file, verbose=False):
         '''
         Reads in a pretrained embedding txt file, and returns a numpy array with vectors for words in word index.
         '''
         array_coefs = None
         embedding_dim = None
         pretrained_embedding = {}
-        open_file = gzip.open if embedding_file.endswith('.gz') else (bz2.open if embedding_file.endswith('.bz2') else open)
-        with open_file(embedding_file, "rt", encoding='utf-8') as opened_file:
+        file_size_bytes = os.path.getsize(embedding_file)
+
+        with file_txt_buffered(embedding_file,
+                               buffer_rows=int(file_size_bytes // 5),
+                               encoding='utf-8', verbose=verbose) as opened_file:
             LOGGER.info(f"Reading pretrained word embeddings from file: {embedding_file}")
             for line in opened_file:
                 word, coefs = line.strip().split(maxsplit=1)
@@ -359,3 +379,27 @@ class DataProcessor:
         Returns the number of unique words seen in indexed data.
         '''
         return len(self.word_index)
+    
+
+@contextmanager
+def file_txt_buffered(filename: str, buffer_rows: int = -1,
+                      encoding='utf-8', errors=None,
+                      verbose=False):
+    open_file = (gzip.open if filename.endswith('.gz') \
+                    else (bz2.open if filename.endswith('.bz2') \
+                        else open))
+    kwargs = {'mode': 'rt'}
+    if encoding is not None:
+        kwargs.update({'encoding': encoding})
+    if errors is not None:
+        kwargs.update({'errors': errors})
+    with open_file(filename, **kwargs) as opened_file:
+        def gen():
+            lines = opened_file.readlines(buffer_rows)
+            while lines:
+                if verbose:
+                    LOGGER.info(f"{len(lines)} lines read from file {filename}")
+                for line in lines:
+                    yield line
+                lines = opened_file.readlines(buffer_rows)
+        yield gen()
