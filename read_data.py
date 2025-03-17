@@ -363,7 +363,7 @@ class DataProcessor:
         file_size_bytes = os.path.getsize(embedding_file)
 
         with file_txt_buffered(embedding_file,
-                               buffer_rows=int(file_size_bytes // 5),
+                               buffer_rows=int(file_size_bytes // 2),
                                encoding='utf-8', verbose=verbose) as opened_file:
             LOGGER.info(f"Reading pretrained word embeddings from file: {embedding_file}")
             for line in opened_file:
@@ -395,11 +395,16 @@ def file_txt_buffered(filename: str, buffer_rows: int = -1,
         kwargs.update({'errors': errors})
     with open_file(filename, **kwargs) as opened_file:
         def gen():
+            msg_reading = f"Reading lines from file {filename}"
+            if verbose:
+                LOGGER.info(msg_reading)
             lines = opened_file.readlines(buffer_rows)
             while lines:
                 if verbose:
                     LOGGER.info(f"{len(lines)} lines read from file {filename}")
                 for line in lines:
                     yield line
+                if verbose:
+                    LOGGER.info(msg_reading)
                 lines = opened_file.readlines(buffer_rows)
         yield gen()
