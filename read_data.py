@@ -24,6 +24,7 @@ logging.basicConfig(level=logging.DEBUG, stream=sys.stdout,
                     format='[%(asctime)s]%(levelname)s(%(name)s): %(message)s')
 LOGGER = logging.getLogger(__name__)
 
+BUFFER_ROWS = 1000
 
 class DataProcessor:
     '''
@@ -52,7 +53,6 @@ class DataProcessor:
         rows_buffer = []
         indexed_data = []
         count_rows = 0
-        BUFFER_ROWS = 1000
         with file_txt_buffered(filename, buffer_rows=BUFFER_ROWS,
                                encoding='utf-8', errors='replace',
                                verbose=verbose) as opened_file:
@@ -360,11 +360,11 @@ class DataProcessor:
         array_coefs = None
         embedding_dim = None
         pretrained_embedding = {}
-        file_size_bytes = os.path.getsize(embedding_file)
 
         with file_txt_buffered(embedding_file,
-                               buffer_rows=int(file_size_bytes // 2),
-                               encoding='utf-8', verbose=verbose) as opened_file:
+                               buffer_rows=BUFFER_ROWS,
+                               encoding='utf-8',
+                               verbose=verbose) as opened_file:
             LOGGER.info(f"Reading pretrained word embeddings from file: {embedding_file}")
             for line in opened_file:
                 word, coefs = line.strip().split(maxsplit=1)
@@ -388,6 +388,10 @@ def file_txt_buffered(filename: str, buffer_rows: int = -1,
     open_file = (gzip.open if filename.endswith('.gz') \
                     else (bz2.open if filename.endswith('.bz2') \
                         else open))
+    if (buffer_rows > 0) and (open_file != open):
+        buffer_rows = max(buffer_rows, 2 ** 27) # 256MiB
+        buffer_rows = min(buffer_rows, os.path.getsize(filename))
+    
     kwargs = {'mode': 'rt'}
     if encoding is not None:
         kwargs.update({'encoding': encoding})
