@@ -11,6 +11,8 @@ import gzip
 import json
 import math
 import numpy as np
+import time
+import asyncio
 
 from gensim import models
 from scipy.sparse import csr_matrix
@@ -18,13 +20,14 @@ from six import iteritems
 from sklearn.preprocessing import normalize, LabelEncoder
 from typing import List
 from builtins import isinstance
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
+from multiprocessing import Pool
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout,
                     format='[%(asctime)s]%(levelname)s(%(name)s): %(message)s')
 LOGGER = logging.getLogger(__name__)
 
-BUFFER_ROWS = 1000
+BUFFER_HINT = 2 ** 27 # 256MiB
 
 class DataProcessor:
     '''
@@ -53,7 +56,8 @@ class DataProcessor:
         rows_buffer = []
         indexed_data = []
         count_rows = 0
-        with file_txt_buffered(filename, buffer_rows=BUFFER_ROWS,
+        BUFFER_ROWS = 1000
+        with file_txt_buffered(filename, buffer_hint=BUFFER_HINT,
                                encoding='utf-8', errors='replace',
                                verbose=verbose) as opened_file:
             for row in opened_file:
@@ -362,7 +366,7 @@ class DataProcessor:
         pretrained_embedding = {}
 
         with file_txt_buffered(embedding_file,
-                               buffer_rows=BUFFER_ROWS,
+                               buffer_hint=BUFFER_HINT,
                                encoding='utf-8',
                                verbose=verbose) as opened_file:
             LOGGER.info(f"Reading pretrained word embeddings from file: {embedding_file}")
@@ -382,15 +386,14 @@ class DataProcessor:
     
 
 @contextmanager
-def file_txt_buffered(filename: str, buffer_rows: int = -1,
+def file_txt_buffered(filename: str, buffer_hint: int = -1,
                       encoding='utf-8', errors=None,
                       verbose=False):
     open_file = (gzip.open if filename.endswith('.gz') \
                     else (bz2.open if filename.endswith('.bz2') \
                         else open))
-    if (buffer_rows > 0) and (open_file != open):
-        buffer_rows = max(buffer_rows, 2 ** 27) # 256MiB
-        buffer_rows = min(buffer_rows, os.path.getsize(filename))
+    buffer_hint = max(buffer_hint, BUFFER_HINT)
+    buffer_hint = min(buffer_hint, os.path.getsize(filename))
     
     kwargs = {'mode': 'rt'}
     if encoding is not None:
@@ -398,17 +401,64 @@ def file_txt_buffered(filename: str, buffer_rows: int = -1,
     if errors is not None:
         kwargs.update({'errors': errors})
     with open_file(filename, **kwargs) as opened_file:
-        def gen():
-            msg_reading = f"Reading lines from file {filename}"
+        def _readlines_():
             if verbose:
-                LOGGER.info(msg_reading)
-            lines = opened_file.readlines(buffer_rows)
-            while lines:
-                if verbose:
+                LOGGER.info(f"Reading lines from file {filename}")
+            lines = opened_file.readlines(buffer_hint)
+            if verbose:
+                if lines:
                     LOGGER.info(f"{len(lines)} lines read from file {filename}")
+                else:
+                    LOGGER.info(f"End of file reading: {filename}")
+            return lines
+        def _gen_():
+            lines = _readlines_()
+            while lines:
                 for line in lines:
                     yield line
-                if verbose:
-                    LOGGER.info(msg_reading)
-                lines = opened_file.readlines(buffer_rows)
-        yield gen()
+                lines = _readlines_()
+        yield _gen_()
+
+@asynccontextmanager
+async def async_read_txt_file(filename: str,
+                              buffer_hint: int = -1,
+                              encoding='utf-8',
+                              errors=None,
+                              verbose=False):
+    open_file = (gzip.open if filename.endswith('.gz') \
+                    else (bz2.open if filename.endswith('.bz2') \
+                        else open))
+    buffer_hint = max(buffer_hint, BUFFER_HINT)
+    buffer_hint = min(buffer_hint, os.path.getsize(filename))
+
+    kwargs = {'mode': 'rt'}
+    if encoding is not None:
+        kwargs.update({'encoding': encoding})
+    if errors is not None:
+        kwargs.update({'errors': errors})
+    with open_file(filename, **kwargs) as opened_file:
+        def _readlines_():
+            if verbose:
+                LOGGER.info(f"Reading lines from file {filename}")
+            # may be slow as it has disk access
+            lines = opened_file.readlines(buffer_hint)
+            if verbose:
+                if lines:
+                    LOGGER.info(f"{len(lines)} lines read from file {filename}")
+                else:
+                    LOGGER.info(f"End of file reading: {filename}")
+            return lines
+        async def _gen_():
+            import gc
+            lines = _readlines_()
+            task = None
+            while lines:
+                task = asyncio.gather(asyncio.to_thread(_readlines_))
+                for line in lines:
+                    yield line
+                lines = await task
+                lines = lines[0]
+            del task
+            del lines
+            gc.collect()
+        yield _gen_()
