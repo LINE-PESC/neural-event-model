@@ -368,6 +368,7 @@ class DataProcessor:
         with file_txt_buffered(embedding_file,
                                buffer_hint=BUFFER_HINT,
                                encoding='utf-8',
+                               errors='replace',
                                verbose=verbose) as opened_file:
             LOGGER.info(f"Reading pretrained word embeddings from file: {embedding_file}")
             for line in opened_file:
@@ -389,6 +390,7 @@ class DataProcessor:
 def file_txt_buffered(filename: str, buffer_hint: int = -1,
                       encoding='utf-8', errors=None,
                       verbose=False):
+    # TODO refatorar todas as chamadas para ler arquivos compactados para desconderar a primeira linha se estiver nessa condição: line.startswith("/") and line.endswith("''")
     open_file = (gzip.open if filename.endswith('.gz') \
                     else (bz2.open if filename.endswith('.bz2') \
                         else open))
@@ -425,6 +427,7 @@ async def async_read_txt_file(filename: str,
                               encoding='utf-8',
                               errors=None,
                               verbose=False):
+    # TODO refatorar todas as chamadas para ler arquivos compactados para desconderar a primeira linha se estiver nessa condição: line.startswith("/") and line.endswith("''")
     open_file = (gzip.open if filename.endswith('.gz') \
                     else (bz2.open if filename.endswith('.bz2') \
                         else open))
@@ -436,6 +439,8 @@ async def async_read_txt_file(filename: str,
         kwargs.update({'encoding': encoding})
     if errors is not None:
         kwargs.update({'errors': errors})
+    LOGGER.info(f"Opening file {filename} with buffer hint {buffer_hint} and keyword arguments {kwargs}...")
+
     with open_file(filename, **kwargs) as opened_file:
         def _readlines_():
             if verbose:
