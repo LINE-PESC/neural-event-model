@@ -23,9 +23,10 @@ from builtins import isinstance
 from contextlib import contextmanager, asynccontextmanager
 from multiprocessing import Pool
 
-logging.basicConfig(level=logging.DEBUG, stream=sys.stdout,
+logging.basicConfig(stream=sys.stdout,
                     format='[%(asctime)s]%(levelname)s(%(name)s): %(message)s')
 LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.DEBUG)
 
 BUFFER_HINT = 2 ** 27 # 256MiB
 
