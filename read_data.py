@@ -398,8 +398,9 @@ def file_txt_buffered(filename: str, buffer_hint: int = -1,
     open_file = (gzip.open if filename.endswith('.gz') \
                     else (bz2.open if filename.endswith('.bz2') \
                         else open))
+    multiply_buffer = 3 if filename.endswith('.bz2') else 1
     buffer_hint = max(buffer_hint, BUFFER_HINT)
-    buffer_hint = min(buffer_hint, os.path.getsize(filename))
+    buffer_hint = min(buffer_hint, os.path.getsize(filename) * multiply_buffer)
     
     kwargs = {'mode': 'rt'}
     if encoding is not None:
@@ -436,8 +437,9 @@ async def async_read_txt_file(filename: str,
     open_file = (gzip.open if filename.endswith('.gz') \
                     else (bz2.open if filename.endswith('.bz2') \
                         else open))
+    multiply_buffer = 3 if filename.endswith('.bz2') else 1
     buffer_hint = max(buffer_hint, BUFFER_HINT)
-    buffer_hint = min(buffer_hint, os.path.getsize(filename))
+    buffer_hint = min(buffer_hint, os.path.getsize(filename) * multiply_buffer)
 
     kwargs = {'mode': 'rt'}
     if encoding is not None:
