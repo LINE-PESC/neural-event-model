@@ -26,9 +26,8 @@ from multiprocessing import Pool
 logging.basicConfig(level=logging.INFO, stream=sys.stdout,
                     format='[%(asctime)s]%(levelname)s(%(name)s): %(message)s')
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.DEBUG)
 
-BUFFER_HINT = 2 ** 27 # 256MiB
+BUFFER_HINT = 2 ** 29 # 512MiB
 
 class DataProcessor:
     '''
@@ -74,12 +73,14 @@ class DataProcessor:
                                                                min_args_event=min_args_event,
                                                                return_data=return_data))
                     rows_buffer.clear()
-        indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words,
-                                                   include_sentences_in_events,
-                                                   min_event_structure=min_event_structure,
-                                                   max_event_structure=max_event_structure,
-                                                   min_args_event=min_args_event,
-                                                   return_data=return_data))
+        # end-for
+        if rows_buffer:
+            indexed_data.extend(self._index_data_batch(rows_buffer, tokenize, add_new_words,
+                                                       include_sentences_in_events,
+                                                       min_event_structure=min_event_structure,
+                                                       max_event_structure=max_event_structure,
+                                                       min_args_event=min_args_event,
+                                                       return_data=return_data))
         LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows} (with min of {min_args_event} args)")
         inputs, labels, datasrc = self.pad_data(indexed_data, pad_info, use_event_structure, return_data=return_data)
         return (inputs, self._make_one_hot(labels), datasrc) if return_data else (inputs, self._make_one_hot(labels))
@@ -391,6 +392,8 @@ class DataProcessor:
 def file_txt_buffered(filename: str, buffer_hint: int = -1,
                       encoding='utf-8', errors=None,
                       verbose=False):
+    if verbose:
+        LOGGER.setLevel(logging.DEBUG)
     # TODO refatorar todas as chamadas para ler arquivos compactados para desconderar a primeira linha se estiver nessa condição: line.startswith("/") and line.endswith("''")
     open_file = (gzip.open if filename.endswith('.gz') \
                     else (bz2.open if filename.endswith('.bz2') \
@@ -405,14 +408,12 @@ def file_txt_buffered(filename: str, buffer_hint: int = -1,
         kwargs.update({'errors': errors})
     with open_file(filename, **kwargs) as opened_file:
         def _readlines_():
-            if verbose:
-                LOGGER.info(f"Reading lines from file {filename}")
+            LOGGER.debug(f"Reading lines from file {filename}")
             lines = opened_file.readlines(buffer_hint)
-            if verbose:
-                if lines:
-                    LOGGER.info(f"{len(lines)} lines read from file {filename}")
-                else:
-                    LOGGER.info(f"End of file reading: {filename}")
+            if lines:
+                LOGGER.debug(f"{len(lines)} lines read from file {filename}")
+            else:
+                LOGGER.debug(f"End of file reading: {filename}")
             return lines
         def _gen_():
             lines = _readlines_()
@@ -421,6 +422,7 @@ def file_txt_buffered(filename: str, buffer_hint: int = -1,
                     yield line
                 lines = _readlines_()
         yield _gen_()
+    LOGGER.setLevel(logging.INFO)
 
 @asynccontextmanager
 async def async_read_txt_file(filename: str,
@@ -428,6 +430,8 @@ async def async_read_txt_file(filename: str,
                               encoding='utf-8',
                               errors=None,
                               verbose=False):
+    if verbose:
+        LOGGER.setLevel(logging.DEBUG)
     # TODO refatorar todas as chamadas para ler arquivos compactados para desconderar a primeira linha se estiver nessa condição: line.startswith("/") and line.endswith("''")
     open_file = (gzip.open if filename.endswith('.gz') \
                     else (bz2.open if filename.endswith('.bz2') \
@@ -444,15 +448,13 @@ async def async_read_txt_file(filename: str,
 
     with open_file(filename, **kwargs) as opened_file:
         def _readlines_():
-            if verbose:
-                LOGGER.info(f"Reading lines from file {filename}")
+            LOGGER.debug(f"Reading lines from file {filename}")
             # may be slow as it has disk access
             lines = opened_file.readlines(buffer_hint)
-            if verbose:
-                if lines:
-                    LOGGER.info(f"{len(lines)} lines read from file {filename}")
-                else:
-                    LOGGER.info(f"End of file reading: {filename}")
+            if lines:
+                LOGGER.debug(f"{len(lines)} lines read from file {filename}")
+            else:
+                LOGGER.debug(f"End of file reading: {filename}")
             return lines
         async def _gen_():
             import gc
@@ -468,3 +470,4 @@ async def async_read_txt_file(filename: str,
             del lines
             gc.collect()
         yield _gen_()
+    LOGGER.setLevel(logging.INFO)
