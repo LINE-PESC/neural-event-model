@@ -14,6 +14,7 @@ import numpy as np
 import time
 import asyncio
 
+from datetime import datetime
 from gensim import models
 from scipy.sparse import csr_matrix
 from six import iteritems
@@ -42,8 +43,23 @@ class DataProcessor:
         self.word_index = {"NONE": 0, "UNK": 1}  # NONE is padding, UNK is OOV.
         self.label_encoder = None
         self.set_labels = set()
-    
+
+
     def index_data(self, filename, tokenize=None, add_new_words=True,
+                   pad_info=None, include_sentences_in_events=False,
+                   use_event_structure=True, min_event_structure=1,
+                   max_event_structure=1, min_args_event=1,
+                   return_data=False, verbose=False):
+        result = asyncio.run(self._async_index_data(
+                            filename, tokenize, add_new_words,
+                            pad_info, include_sentences_in_events,
+                            use_event_structure, min_event_structure,
+                            max_event_structure, min_args_event,
+                            return_data, verbose))
+        return result
+
+
+    async def _async_index_data(self, filename, tokenize=None, add_new_words=True,
                    pad_info=None, include_sentences_in_events=False,
                    use_event_structure=True, min_event_structure=1,
                    max_event_structure=1, min_args_event=1,
@@ -57,10 +73,10 @@ class DataProcessor:
         indexed_data = []
         count_rows = 0
         BUFFER_ROWS = 1000
-        with file_txt_buffered(filename, buffer_hint=BUFFER_HINT,
-                               encoding='utf-8', errors='replace',
-                               verbose=verbose) as opened_file:
-            for row in opened_file:
+        async with async_read_txt_file(filename, buffer_hint=BUFFER_HINT,
+                                       encoding='utf-8', errors='replace',
+                                       verbose=verbose) as opened_file:
+            async for row in opened_file:
                 rows_buffer.append(row)
                 count_rows += 1
                 if (len(rows_buffer) >= BUFFER_ROWS):
@@ -84,7 +100,8 @@ class DataProcessor:
         LOGGER.info(f"INDEXED DATA/ROWS: {len(indexed_data)}/{count_rows} (with min of {min_args_event} args)")
         inputs, labels, datasrc = self.pad_data(indexed_data, pad_info, use_event_structure, return_data=return_data)
         return (inputs, self._make_one_hot(labels), datasrc) if return_data else (inputs, self._make_one_hot(labels))
-    
+
+
     def _index_data_batch(self, rows_batch, tokenize=None, add_new_words=True, include_sentences_in_events=False, \
                           min_event_structure=1, max_event_structure=1, min_args_event=1, return_data=False):
         indexed_data = []
@@ -360,6 +377,11 @@ class DataProcessor:
         return (pretrained_embedding, embedding_dim)
 
     def _get_embedding_from_txt(self, embedding_file, verbose=False):
+        result = asyncio.run(self._async_get_embedding_from_txt(embedding_file, verbose))
+        return result
+
+    
+    async def _async_get_embedding_from_txt(self, embedding_file, verbose=False):
         '''
         Reads in a pretrained embedding txt file, and returns a numpy array with vectors for words in word index.
         '''
@@ -367,17 +389,19 @@ class DataProcessor:
         embedding_dim = None
         pretrained_embedding = {}
 
-        with file_txt_buffered(embedding_file,
-                               buffer_hint=BUFFER_HINT,
-                               encoding='utf-8',
-                               errors='replace',
-                               verbose=verbose) as opened_file:
+        async with async_read_txt_file(embedding_file,
+                                       buffer_hint=BUFFER_HINT,
+                                       encoding='utf-8',
+                                       errors='replace',
+                                       verbose=verbose) as opened_file:
             LOGGER.info(f"Reading pretrained word embeddings from file: {embedding_file}")
-            for line in opened_file:
-                word, coefs = line.strip().split(maxsplit=1)
-                array_coefs = np.fromstring(coefs, "f", sep=" ")
-                if len(array_coefs) > 1:
-                    pretrained_embedding[word] = array_coefs
+            async for line in opened_file:
+                line = line.strip()
+                if line and (' ' in line):
+                    word, coefs = line.split(maxsplit=1)
+                    array_coefs = np.fromstring(coefs, "f", sep=" ")
+                    if len(array_coefs) > 1:
+                        pretrained_embedding[word] = array_coefs
         embedding_dim = pretrained_embedding[list(pretrained_embedding.keys())[0]].shape[0]
         return (pretrained_embedding, embedding_dim)
 
@@ -389,9 +413,12 @@ class DataProcessor:
     
 
 @contextmanager
-def file_txt_buffered(filename: str, buffer_hint: int = -1,
-                      encoding='utf-8', errors=None,
+def file_txt_buffered(filename: str,
+                      buffer_hint: int = -1,
+                      encoding='utf-8',
+                      errors=None,
                       verbose=False):
+    log_level = LOGGER.getEffectiveLevel()
     if verbose:
         LOGGER.setLevel(logging.DEBUG)
     # TODO refatorar todas as chamadas para ler arquivos compactados para desconderar a primeira linha se estiver nessa condição: line.startswith("/") and line.endswith("''")
@@ -423,7 +450,7 @@ def file_txt_buffered(filename: str, buffer_hint: int = -1,
                     yield line
                 lines = _readlines_()
         yield _gen_()
-    LOGGER.setLevel(logging.INFO)
+    LOGGER.setLevel(log_level)
 
 @asynccontextmanager
 async def async_read_txt_file(filename: str,
@@ -431,6 +458,7 @@ async def async_read_txt_file(filename: str,
                               encoding='utf-8',
                               errors=None,
                               verbose=False):
+    log_level = LOGGER.getEffectiveLevel()
     if verbose:
         LOGGER.setLevel(logging.DEBUG)
     # TODO refatorar todas as chamadas para ler arquivos compactados para desconderar a primeira linha se estiver nessa condição: line.startswith("/") and line.endswith("''")
@@ -447,29 +475,35 @@ async def async_read_txt_file(filename: str,
     if errors is not None:
         kwargs.update({'errors': errors})
     LOGGER.info(f"Opening file {filename} with buffer hint {buffer_hint} and keyword arguments {kwargs}...")
-
+    
     with open_file(filename, **kwargs) as opened_file:
-        def _readlines_():
-            LOGGER.debug(f"Reading lines from file {filename}")
+        def _readlines_(times_read=0):
+            LOGGER.debug(f"(#{times_read}) Reading lines from file {filename}")
             # may be slow as it has disk access
             lines = opened_file.readlines(buffer_hint)
             if lines:
-                LOGGER.debug(f"{len(lines)} lines read from file {filename}")
+                LOGGER.debug(f"(#{times_read}) {len(lines)} lines read from file {filename}")
             else:
-                LOGGER.debug(f"End of file reading: {filename}")
+                LOGGER.debug(f"(#{times_read}) End of file reading: {filename}")
             return lines
         async def _gen_():
-            import gc
+            times_read = 0
+            start = datetime.now()
             lines = _readlines_()
-            task = None
+            diff_seconds = (datetime.now() - start).total_seconds()
             while lines:
-                task = asyncio.gather(asyncio.to_thread(_readlines_))
+                times_read += 1
+                LOGGER.debug(f"(#{times_read}) Preparing to assynchronously read more lines from file {filename}")
+                thread_io = asyncio.to_thread(_readlines_, times_read)
+                tasks = asyncio.gather(thread_io)
+                await asyncio.sleep(diff_seconds * .1) # to allow the event loop to take control
+                LOGGER.debug(f"(#{times_read - 1}) Yielding {len(lines)} lines from file {filename}")
                 for line in lines:
                     yield line
-                lines = await task
+                LOGGER.debug(f"(#{times_read}) Waiting for next lines from file {filename}")
+                lines = await tasks
                 lines = lines[0]
-            del task
-            del lines
-            gc.collect()
+                del thread_io
+                del tasks
         yield _gen_()
-    LOGGER.setLevel(logging.INFO)
+    LOGGER.setLevel(log_level)
