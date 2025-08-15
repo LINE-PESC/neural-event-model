@@ -474,7 +474,8 @@ async def async_read_txt_file(filename: str,
         kwargs.update({'encoding': encoding})
     if errors is not None:
         kwargs.update({'errors': errors})
-    LOGGER.info(f"Opening file {filename} with buffer hint {buffer_hint} and keyword arguments {kwargs}...")
+    LOGGER.info(f"Opening file {filename} with buffer hint {buffer_hint} ...")
+    LOGGER.debug(f"Opening file {filename} with buffer hint {buffer_hint} and keyword arguments {kwargs} ...")
     
     with open_file(filename, **kwargs) as opened_file:
         def _readlines_(times_read=0):
